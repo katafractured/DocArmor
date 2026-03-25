@@ -11,9 +11,15 @@ struct AddDocumentView: View {
     // MARK: - Form State
 
     @State private var name = ""
+    @State private var selectedOwnerName: String?
     @State private var selectedType: DocumentType = .driversLicense
     @State private var selectedCategory: DocumentCategory = .identity
     @State private var notes = ""
+    @State private var issuerName = ""
+    @State private var identifierSuffix = ""
+    @State private var hasLastVerified = false
+    @State private var lastVerifiedAt = Date.now
+    @State private var renewalNotes = ""
     @State private var hasExpiration = false
     @State private var expirationDate = Calendar.current.date(byAdding: .year, value: 1, to: .now) ?? .now
     @State private var reminderDays: Int? = 30
@@ -28,6 +34,7 @@ struct AddDocumentView: View {
     @State private var isSaving = false
     @State private var saveError: String?
     @State private var scannerError: String?
+    @State private var householdMembers = HouseholdStore.loadMembers()
 
     private var isEditing: Bool { editingDocument != nil }
 
@@ -39,21 +46,55 @@ struct AddDocumentView: View {
                     TextField("Name (e.g. John's Passport)", text: $name)
                         .autocorrectionDisabled()
 
-                    Picker("Type", selection: $selectedType) {
+                    Picker(selection: $selectedOwnerName) {
+                        Label("Shared", systemImage: "person.2.fill").tag(Optional<String>.none)
+                        ForEach(availableHouseholdMembers, id: \.self) { member in
+                            Label(member, systemImage: "person.fill").tag(Optional(member))
+                        }
+                    } label: {
+                        Label("Person", systemImage: selectedOwnerName == nil ? "person.2.fill" : "person.fill")
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker(selection: $selectedType) {
                         ForEach(DocumentType.allCases, id: \.self) { type in
                             Label(type.rawValue, systemImage: type.systemImage).tag(type)
                         }
+                    } label: {
+                        Label("Type", systemImage: selectedType.systemImage)
                     }
+                    .pickerStyle(.menu)
                     .onChange(of: selectedType) { _, newType in
                         selectedCategory = newType.defaultCategory
                         updatePageLabels()
                     }
 
-                    Picker("Category", selection: $selectedCategory) {
+                    Picker(selection: $selectedCategory) {
                         ForEach(DocumentCategory.allCases, id: \.self) { cat in
                             Label(cat.rawValue, systemImage: cat.systemImage).tag(cat)
                         }
+                    } label: {
+                        Label("Category", systemImage: selectedCategory.systemImage)
                     }
+                    .pickerStyle(.menu)
+                }
+
+                Section("Reference Details") {
+                    TextField("Issuing authority", text: $issuerName)
+                        .autocorrectionDisabled()
+
+                    TextField("ID or policy suffix", text: $identifierSuffix)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+
+                    Toggle("Track last verification", isOn: $hasLastVerified)
+
+                    if hasLastVerified {
+                        DatePicker("Last Verified", selection: $lastVerifiedAt, displayedComponents: .date)
+                    }
+
+                    TextField("Renewal notes", text: $renewalNotes, axis: .vertical)
+                        .lineLimit(2...4)
                 }
 
                 // MARK: Expiration
@@ -194,13 +235,22 @@ struct AddDocumentView: View {
             .onAppear {
                 if let doc = editingDocument {
                     name = doc.name
+                    selectedOwnerName = HouseholdStore.normalize(doc.ownerName)
                     selectedType = doc.documentType
                     selectedCategory = doc.category
                     notes = doc.notes
+                    issuerName = doc.issuerName
+                    identifierSuffix = doc.identifierSuffix
+                    hasLastVerified = doc.lastVerifiedAt != nil
+                    if let lastVerified = doc.lastVerifiedAt {
+                        lastVerifiedAt = lastVerified
+                    }
+                    renewalNotes = doc.renewalNotes
                     hasExpiration = doc.expirationDate != nil
                     if let expiry = doc.expirationDate { expirationDate = expiry }
                     reminderDays = doc.expirationReminderDays
                 } else {
+                    selectedOwnerName = availableHouseholdMembers.first
                     updatePageLabels()
                 }
             }
@@ -212,6 +262,16 @@ struct AddDocumentView: View {
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
         (isEditing || !capturedImages.isEmpty)
+    }
+
+    private var availableHouseholdMembers: [String] {
+        var members = householdMembers
+        if let selectedOwnerName, !members.contains(selectedOwnerName) {
+            members.append(selectedOwnerName)
+        }
+        return members.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
     }
 
     // MARK: - Page Labels
@@ -238,9 +298,14 @@ struct AddDocumentView: View {
             if let doc = editingDocument {
                 // Update existing document metadata
                 doc.name = name.trimmingCharacters(in: .whitespaces)
+                doc.ownerName = HouseholdStore.normalize(selectedOwnerName)
                 doc.documentTypeRaw = selectedType.rawValue
                 doc.categoryRaw = selectedCategory.rawValue
                 doc.notes = notes
+                doc.issuerName = issuerName.trimmingCharacters(in: .whitespacesAndNewlines)
+                doc.identifierSuffix = identifierSuffix.trimmingCharacters(in: .whitespacesAndNewlines)
+                doc.lastVerifiedAt = hasLastVerified ? lastVerifiedAt : nil
+                doc.renewalNotes = renewalNotes
                 doc.expirationDate = hasExpiration ? expirationDate : nil
                 doc.expirationReminderDays = hasExpiration ? reminderDays : nil
                 doc.updatedAt = .now
@@ -249,9 +314,14 @@ struct AddDocumentView: View {
                 // Create new document + encrypt pages
                 let document = Document(
                     name: name.trimmingCharacters(in: .whitespaces),
+                    ownerName: HouseholdStore.normalize(selectedOwnerName),
                     documentType: selectedType,
                     category: selectedCategory,
                     notes: notes,
+                    issuerName: issuerName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    identifierSuffix: identifierSuffix.trimmingCharacters(in: .whitespacesAndNewlines),
+                    lastVerifiedAt: hasLastVerified ? lastVerifiedAt : nil,
+                    renewalNotes: renewalNotes,
                     expirationDate: hasExpiration ? expirationDate : nil,
                     expirationReminderDays: hasExpiration ? reminderDays : nil
                 )

@@ -137,3 +137,84 @@ struct QuickLaunchWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular])
     }
 }
+
+// MARK: - Readiness Widget
+
+struct ReadinessEntry: TimelineEntry {
+    let date: Date
+    let snapshot: VaultReadinessSnapshot
+}
+
+struct ReadinessProvider: TimelineProvider {
+    func placeholder(in context: Context) -> ReadinessEntry {
+        ReadinessEntry(
+            date: .now,
+            snapshot: VaultReadinessSnapshot(
+                updatedAt: .now,
+                totalDocuments: 6,
+                needsAttentionCount: 2,
+                expiringSoonCount: 1,
+                readyNowCount: 4
+            )
+        )
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (ReadinessEntry) -> Void) {
+        completion(ReadinessEntry(date: .now, snapshot: VaultSnapshotStore.loadSnapshot() ?? placeholder(in: context).snapshot))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<ReadinessEntry>) -> Void) {
+        let entry = ReadinessEntry(date: .now, snapshot: VaultSnapshotStore.loadSnapshot() ?? placeholder(in: context).snapshot)
+        completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(60 * 30))))
+    }
+}
+
+struct ReadinessWidgetView: View {
+    let entry: ReadinessEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Vault Readiness", systemImage: "bolt.shield.fill")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+
+            HStack {
+                readinessMetric("Ready", value: "\(entry.snapshot.readyNowCount)")
+                readinessMetric("Alert", value: "\(entry.snapshot.needsAttentionCount)")
+                readinessMetric("Soon", value: "\(entry.snapshot.expiringSoonCount)")
+            }
+
+            Text("Updated \(entry.snapshot.updatedAt.formatted(date: .omitted, time: .shortened))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding()
+        .containerBackground(Color(.systemGray6), for: .widget)
+    }
+
+    private func readinessMetric(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.headline.bold())
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct ReadinessWidget: Widget {
+    let kind = "DocArmorReadiness"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: ReadinessProvider()) { entry in
+            ReadinessWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Vault Readiness")
+        .description("See expiring and attention-needed documents at a glance.")
+        .supportedFamilies([.systemMedium])
+    }
+}

@@ -41,6 +41,11 @@ enum VaultKey {
         }
     }
 
+    static func exportKeyData() throws -> Data {
+        let key = try load()
+        return key.withUnsafeBytes { Data($0) }
+    }
+
     /// Generate a new AES-256 key and persist it in the Keychain.
     /// Call only on first launch (when `load()` throws `.notFound`).
     @discardableResult
@@ -84,6 +89,11 @@ enum VaultKey {
         }
     }
 
+    static func replace(with keyData: Data) throws {
+        try delete()
+        try store(keyData: keyData)
+    }
+
     /// Returns `true` if a vault key exists in the Keychain (app has been set up before).
     ///
     /// Uses an attribute-only query (`kSecReturnData: false`) so key bytes are never
@@ -99,6 +109,27 @@ enum VaultKey {
         ]
         var result: AnyObject?
         return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess
+    }
+
+    private static func store(keyData: Data) throws {
+        #if targetEnvironment(simulator)
+        let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        #else
+        let accessibility = kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
+        #endif
+
+        let attributes: [CFString: Any] = [
+            kSecClass:                   kSecClassGenericPassword,
+            kSecAttrService:             service,
+            kSecAttrAccount:             account,
+            kSecValueData:               keyData,
+            kSecAttrAccessible:          accessibility
+        ]
+
+        let status = SecItemAdd(attributes as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw VaultKeyError.keychainError(status)
+        }
     }
 }
 

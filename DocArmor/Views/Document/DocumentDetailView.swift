@@ -42,9 +42,44 @@ struct DocumentDetailView: View {
                             .clipShape(Capsule())
                     }
 
+                    Label(document.ownerDisplayName, systemImage: document.ownerName == nil ? "person.2.fill" : "person.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    if document.needsAttention {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if document.isMissingRequiredPages {
+                                Label("Back side or supporting page is missing.", systemImage: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                            }
+                            if document.needsVerificationReview {
+                                Label("Review this document for accuracy. It has not been verified recently.", systemImage: "checkmark.seal.trianglebadge.exclamationmark")
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        .font(.caption)
+                    }
+
                     // Expiration
                     if let expiry = document.expirationDate {
                         ExpirationRow(expirationDate: expiry, isExpired: document.isExpired, daysUntilExpiry: document.daysUntilExpiry)
+                    }
+
+                    if !document.issuerName.isEmpty || !document.identifierSuffix.isEmpty || document.lastVerifiedAt != nil {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !document.issuerName.isEmpty {
+                                detailLine(title: "Issuer", value: document.issuerName)
+                            }
+                            if !document.identifierSuffix.isEmpty {
+                                detailLine(title: "ID Suffix", value: document.identifierSuffix)
+                            }
+                            if let lastVerifiedAt = document.lastVerifiedAt {
+                                detailLine(
+                                    title: "Last Verified",
+                                    value: lastVerifiedAt.formatted(date: .abbreviated, time: .omitted)
+                                )
+                            }
+                        }
                     }
 
                     // Notes
@@ -54,6 +89,16 @@ struct DocumentDetailView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Text(document.notes)
+                                .font(.body)
+                        }
+                    }
+
+                    if !document.renewalNotes.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Renewal Notes")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(document.renewalNotes)
                                 .font(.body)
                         }
                     }
@@ -119,6 +164,17 @@ struct DocumentDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently delete \"\(document.name)\" and all its pages. This cannot be undone.")
+        }
+    }
+
+    private func detailLine(title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.subheadline)
         }
     }
 
