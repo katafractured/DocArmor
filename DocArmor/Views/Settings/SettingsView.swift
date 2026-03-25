@@ -12,6 +12,7 @@ struct SettingsView: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
     @Environment(AuthService.self) private var auth
     @Environment(AutoLockService.self) private var autoLock
     @Query private var allDocuments: [Document]
@@ -140,10 +141,32 @@ struct SettingsView: View {
                         Text("Katafract LLC")
                             .foregroundStyle(.secondary)
                     }
+                }
 
-                    Link(destination: URL(string: "https://katafract.com/privacy-docarmor.html")!) {
-                        Label("Privacy Policy", systemImage: "hand.raised.fill")
-                    }
+                Section("Support & Legal") {
+                    externalLinkRow(
+                        title: "App Page",
+                        systemImage: "app.badge",
+                        urlString: "https://katafract.com/apps/docarmor"
+                    )
+
+                    externalLinkRow(
+                        title: "Support",
+                        systemImage: "questionmark.circle",
+                        urlString: "https://katafract.com/support/docarmor"
+                    )
+
+                    externalLinkRow(
+                        title: "Privacy Policy",
+                        systemImage: "hand.raised.fill",
+                        urlString: "https://katafract.com/privacy/docarmor"
+                    )
+
+                    externalLinkRow(
+                        title: "Terms of Use",
+                        systemImage: "doc.text",
+                        urlString: "https://katafract.com/terms/docarmor"
+                    )
                 }
 
                 // MARK: Privacy Statement
@@ -336,6 +359,25 @@ struct SettingsView: View {
 
     private func documentCount(for member: String) -> Int {
         allDocuments.filter { $0.ownerDisplayName == member }.count
+    }
+
+    @ViewBuilder
+    private func externalLinkRow(title: String, systemImage: String, urlString: String) -> some View {
+        if let url = URL(string: urlString) {
+            Button {
+                openURL(url)
+            } label: {
+                HStack {
+                    Label(title, systemImage: systemImage)
+                    Spacer()
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
 
