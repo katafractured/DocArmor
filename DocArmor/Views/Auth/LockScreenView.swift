@@ -52,6 +52,7 @@ struct LockScreenView: View {
                 .buttonStyle(.borderedProminent)
                 .padding(.horizontal, 32)
                 .disabled(auth.state == .authenticating)
+                .accessibilityLabel(unlockLabel)
 
                 Spacer().frame(height: 16)
             }

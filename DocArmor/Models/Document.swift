@@ -17,8 +17,9 @@ final class Document {
     var lastVerifiedAt: Date?
     var renewalNotes: String
     var expirationDate: Date?
-    /// Days before expiry to send reminder: 30, 60, 90 — nil means no reminder
-    var expirationReminderDays: Int?
+    /// Days before expiry to send reminders — multiple values allowed (e.g. [30, 60, 90]).
+    /// nil or empty means no reminders scheduled.
+    var expirationReminderDays: [Int]?
     var createdAt: Date
     var updatedAt: Date
     var isFavorite: Bool
@@ -92,7 +93,7 @@ final class Document {
         lastVerifiedAt: Date? = nil,
         renewalNotes: String = "",
         expirationDate: Date? = nil,
-        expirationReminderDays: Int? = nil,
+        expirationReminderDays: [Int]? = nil,
         isFavorite: Bool = false
     ) {
         self.id = id

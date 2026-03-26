@@ -17,6 +17,7 @@ struct DocumentDetailView: View {
     @State private var showingShareSheet = false
     @State private var showingShareWarning = false   // pre-share privacy confirmation
     @State private var shareItems: [Any] = []
+    @State private var isBeingCaptured = false
 
     var body: some View {
         ScrollView {
@@ -120,6 +121,7 @@ struct DocumentDetailView: View {
                     Image(systemName: "rectangle.expand.vertical")
                 }
                 .disabled(decryptedImages.isEmpty)
+                .accessibilityLabel("Present Mode")
 
                 Menu {
                     Button(action: { showingEditSheet = true }) {
@@ -135,10 +137,20 @@ struct DocumentDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("Document Actions")
             }
         }
         .task {
             await decryptPages()
+        }
+        .onAppear {
+            isBeingCaptured = UIScreen.main.isCaptured
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)) { _ in
+            isBeingCaptured = UIScreen.main.isCaptured
+        }
+        .overlay {
+            if isBeingCaptured { captureOverlay }
         }
         .fullScreenCover(isPresented: $showingPresentMode) {
             PresentModeView(images: decryptedImages, initialIndex: currentPageIndex, documentName: document.name)
@@ -271,6 +283,26 @@ struct DocumentDetailView: View {
         ExpirationService.cancelReminder(for: document)
         modelContext.delete(document)
         dismiss()
+    }
+
+    // MARK: - Capture Overlay
+
+    private var captureOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.97).ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 52))
+                    .foregroundStyle(.white)
+                Text("Screen Recording Blocked")
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                Text("DocArmor hides document content\nwhile screen recording is active.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
+            }
+        }
     }
 }
 

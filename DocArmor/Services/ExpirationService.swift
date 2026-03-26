@@ -20,47 +20,47 @@ enum ExpirationService {
         guard
             let expirationDate = document.expirationDate,
             let reminderDays = document.expirationReminderDays,
-            reminderDays > 0
+            !reminderDays.isEmpty
         else { return }
 
-        guard let triggerDate = Calendar.current.date(
-            byAdding: .day,
-            value: -reminderDays,
-            to: expirationDate
-        ) else { return }
+        for days in reminderDays {
+            guard days > 0 else { continue }
+            guard let triggerDate = Calendar.current.date(
+                byAdding: .day,
+                value: -days,
+                to: expirationDate
+            ) else { continue }
 
-        // Don't schedule if trigger date is in the past
-        guard triggerDate > Date.now else { return }
+            guard triggerDate > Date.now else { continue }
 
-        let content = UNMutableNotificationContent()
-        content.title = "Document Expiring Soon"
-        // Use the actual expiration date in the body rather than the reminder lead
-        // time. The device may deliver the notification late (e.g. after DND/reboot),
-        // so a concrete date is more accurate than "in X days".
-        let formatted = expirationDate.formatted(date: .abbreviated, time: .omitted)
-        content.body = "\(document.name) expires on \(formatted). Tap to view."
-        content.sound = .default
+            let content = UNMutableNotificationContent()
+            content.title = "Document Expiring Soon"
+            let formatted = expirationDate.formatted(date: .abbreviated, time: .omitted)
+            content.body = "\(document.name) expires on \(formatted). Tap to view."
+            content.sound = .default
 
-        let components = Calendar.current.dateComponents(
-            [.year, .month, .day, .hour, .minute],
-            from: triggerDate
-        )
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let components = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute],
+                from: triggerDate
+            )
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
 
-        let request = UNNotificationRequest(
-            identifier: notificationID(for: document),
-            content: content,
-            trigger: trigger
-        )
+            let request = UNNotificationRequest(
+                identifier: notificationID(for: document, days: days),
+                content: content,
+                trigger: trigger
+            )
 
-        UNUserNotificationCenter.current().add(request)
+            UNUserNotificationCenter.current().add(request)
+        }
     }
 
     // MARK: - Cancel Reminder
 
     static func cancelReminder(for document: Document) {
+        let ids = [30, 60, 90].map { notificationID(for: document, days: $0) }
         UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [notificationID(for: document)])
+            .removePendingNotificationRequests(withIdentifiers: ids)
     }
 
     // MARK: - Update Reminder
@@ -78,7 +78,7 @@ enum ExpirationService {
 
     // MARK: - Helpers
 
-    private static func notificationID(for document: Document) -> String {
-        "docarmor.expiry.\(document.id.uuidString)"
+    private static func notificationID(for document: Document, days: Int) -> String {
+        "docarmor.expiry.\(document.id.uuidString).\(days)"
     }
 }

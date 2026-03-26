@@ -33,6 +33,8 @@ struct VaultView: View {
     @State private var selectedBundleFilter: BundleFilter = .all
     @State private var selectedTypeFilter: DocumentType?
     @State private var selectedOwnerFilter: String?
+    @State private var isBeingCaptured = false
+    @State private var showingTravelMode = false
 
     var pendingDocumentType: Binding<DocumentType?>
     var pendingCategory: Binding<DocumentCategory?>
@@ -149,10 +151,19 @@ struct VaultView: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
                     }
+                    .accessibilityLabel("Add Document")
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button(action: { showingTravelMode = true }) {
+                        Label("Travel Mode", systemImage: "airplane.departure")
+                    }
                 }
             }
             .sheet(isPresented: $showingAddDocument) {
                 AddDocumentView()
+            }
+            .sheet(isPresented: $showingTravelMode) {
+                TravelModeView()
             }
             .onChange(of: pendingDocumentType.wrappedValue) { _, type in
                 guard let type else { return }
@@ -174,6 +185,33 @@ struct VaultView: View {
             }
             .task(id: snapshotFingerprint) {
                 updateWidgetSnapshot()
+            }
+            .onAppear {
+                isBeingCaptured = UIScreen.main.isCaptured
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)) { _ in
+                isBeingCaptured = UIScreen.main.isCaptured
+            }
+            .overlay {
+                if isBeingCaptured { captureOverlay }
+            }
+        }
+    }
+
+    private var captureOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.97).ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 52))
+                    .foregroundStyle(.white)
+                Text("Screen Recording Blocked")
+                    .font(.title2.bold())
+                    .foregroundStyle(.white)
+                Text("DocArmor hides vault content\nwhile screen recording is active.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -439,6 +477,7 @@ struct VaultView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(title): \(value). \(caption).")
     }
 
     private func matches(document: Document, bundle: BundleFilter) -> Bool {
@@ -536,6 +575,19 @@ struct DocumentRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(documentRowAccessibilityLabel)
+    }
+
+    private var documentRowAccessibilityLabel: String {
+        var parts = [document.name, document.documentType.rawValue, document.ownerDisplayName]
+        if document.isExpired {
+            parts.append("Expired")
+        } else if document.expiresSoon, let days = document.daysUntilExpiry {
+            parts.append("Expires in \(days) days")
+        }
+        if document.needsAttention { parts.append("Needs attention") }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -567,6 +619,7 @@ struct ExpirationBadge: View {
             .background(badgeColor.opacity(0.15))
             .foregroundStyle(badgeColor)
             .clipShape(Capsule())
+            .accessibilityLabel(isExpired ? "Expired" : "\(daysUntilExpiry) days until expiry")
     }
 }
 

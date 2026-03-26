@@ -22,11 +22,20 @@ struct AddDocumentView: View {
     @State private var renewalNotes = ""
     @State private var hasExpiration = false
     @State private var expirationDate = Calendar.current.date(byAdding: .year, value: 1, to: .now) ?? .now
-    @State private var reminderDays: Int? = 30
+    @State private var selectedReminderDays: Set<Int> = [30]
 
     // Pages captured/imported (raw, not yet encrypted)
     @State private var capturedImages: [UIImage] = []
     @State private var pageLabels: [String] = []
+
+    // Existing page thumbnails shown in edit mode (decrypted for preview)
+    @State private var existingPageThumbnails: [UIImage] = []
+    @State private var isLoadingExistingPages = false
+
+    // OCR suggestions shown as tappable chips after image capture
+    @State private var suggestedName: String?
+    @State private var suggestedDocNumber: String?
+    @State private var suggestedExpiry: Date?
 
     // Sheet presentation
     @State private var showingScanner = false
@@ -45,6 +54,13 @@ struct AddDocumentView: View {
                 Section("Document Info") {
                     TextField("Name (e.g. John's Passport)", text: $name)
                         .autocorrectionDisabled()
+
+                    if let suggested = suggestedName, name.isEmpty {
+                        suggestionChip(label: "Use \"\(suggested)\"") {
+                            name = suggested
+                            suggestedName = nil
+                        }
+                    }
 
                     Picker(selection: $selectedOwnerName) {
                         Label("Shared", systemImage: "person.2.fill").tag(Optional<String>.none)
@@ -87,6 +103,13 @@ struct AddDocumentView: View {
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
 
+                    if let suggested = suggestedDocNumber, identifierSuffix.isEmpty {
+                        suggestionChip(label: "Use doc number: \(suggested)") {
+                            identifierSuffix = suggested
+                            suggestedDocNumber = nil
+                        }
+                    }
+
                     Toggle("Track last verification", isOn: $hasLastVerified)
 
                     if hasLastVerified {
@@ -101,14 +124,25 @@ struct AddDocumentView: View {
                 Section("Expiration") {
                     Toggle("Has Expiration Date", isOn: $hasExpiration)
 
+                    if !hasExpiration, let suggested = suggestedExpiry {
+                        suggestionChip(label: "Set expiry: \(suggested.formatted(date: .abbreviated, time: .omitted))") {
+                            hasExpiration = true
+                            expirationDate = suggested
+                            suggestedExpiry = nil
+                        }
+                    }
+
                     if hasExpiration {
                         DatePicker("Expires", selection: $expirationDate, displayedComponents: .date)
 
-                        Picker("Reminder", selection: $reminderDays) {
-                            Text("None").tag(Optional<Int>.none)
-                            Text("30 days before").tag(Optional<Int>.some(30))
-                            Text("60 days before").tag(Optional<Int>.some(60))
-                            Text("90 days before").tag(Optional<Int>.some(90))
+                        ForEach([30, 60, 90], id: \.self) { days in
+                            Toggle("\(days) days before", isOn: Binding(
+                                get: { selectedReminderDays.contains(days) },
+                                set: { on in
+                                    if on { selectedReminderDays.insert(days) }
+                                    else  { selectedReminderDays.remove(days) }
+                                }
+                            ))
                         }
                     }
                 }
@@ -120,8 +154,67 @@ struct AddDocumentView: View {
                 }
 
                 // MARK: Pages
-                if !isEditing {
-                    Section("Document Pages") {
+                Section("Document Pages") {
+                    if isEditing {
+                        // Existing pages (decrypted thumbnails)
+                        if isLoadingExistingPages {
+                            ProgressView("Loading pages…")
+                        } else if !existingPageThumbnails.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(existingPageThumbnails.indices, id: \.self) { i in
+                                        Image(uiImage: existingPageThumbnails[i])
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 80, height: 60)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(.separator, lineWidth: 1)
+                                            )
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+
+                        // New pages to append
+                        if !capturedImages.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(capturedImages.indices, id: \.self) { i in
+                                        VStack(spacing: 4) {
+                                            Image(uiImage: capturedImages[i])
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 80, height: 60)
+                                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .stroke(.tint.opacity(0.6), lineWidth: 2)
+                                                )
+                                            Text("New")
+                                                .font(.caption2)
+                                                .foregroundStyle(.tint)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            Button(role: .destructive) {
+                                capturedImages.removeAll()
+                            } label: {
+                                Label("Clear New Pages", systemImage: "trash")
+                            }
+                        }
+
+                        Button(action: { showingScanner = true }) {
+                            Label("Add Pages via Scan", systemImage: "camera.viewfinder")
+                        }
+                        Button(action: { showingPhotoPicker = true }) {
+                            Label("Add Pages from Photos", systemImage: "photo.on.rectangle")
+                        }
+                    } else {
                         if capturedImages.isEmpty {
                             VStack(spacing: 12) {
                                 Button(action: { showingScanner = true }) {
@@ -138,7 +231,6 @@ struct AddDocumentView: View {
                             }
                             .padding(.vertical, 4)
                         } else {
-                            // Thumbnail preview of captured pages
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     ForEach(capturedImages.indices, id: \.self) { i in
@@ -204,6 +296,7 @@ struct AddDocumentView: View {
                         capturedImages = images
                         updatePageLabels()
                         showingScanner = false
+                        if let first = images.first { Task { await runOCR(on: first) } }
                     },
                     onCancel: { showingScanner = false },
                     onError: { error in
@@ -227,6 +320,7 @@ struct AddDocumentView: View {
                         capturedImages = images
                         updatePageLabels()
                         showingPhotoPicker = false
+                        if let first = images.first { Task { await runOCR(on: first) } }
                     },
                     onCancel: { showingPhotoPicker = false }
                 )
@@ -248,7 +342,8 @@ struct AddDocumentView: View {
                     renewalNotes = doc.renewalNotes
                     hasExpiration = doc.expirationDate != nil
                     if let expiry = doc.expirationDate { expirationDate = expiry }
-                    reminderDays = doc.expirationReminderDays
+                    selectedReminderDays = Set(doc.expirationReminderDays ?? [])
+                    Task { await loadExistingPageThumbnails() }
                 } else {
                     selectedOwnerName = availableHouseholdMembers.first
                     updatePageLabels()
@@ -258,6 +353,11 @@ struct AddDocumentView: View {
     }
 
     // MARK: - Validation
+
+    private var reminderArrayOrNil: [Int]? {
+        let sorted = selectedReminderDays.sorted()
+        return sorted.isEmpty ? nil : sorted
+    }
 
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
@@ -286,6 +386,58 @@ struct AddDocumentView: View {
         }
     }
 
+    // MARK: - OCR
+
+    private func runOCR(on image: UIImage) async {
+        let suggestions = await OCRService.extractSuggestions(from: image)
+        if let n = suggestions.name, !n.isEmpty { suggestedName = n }
+        if let d = suggestions.documentNumber { suggestedDocNumber = d }
+        if let e = suggestions.expirationDate { suggestedExpiry = e }
+    }
+
+    private func suggestionChip(label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(label, systemImage: "sparkles")
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.accentColor.opacity(0.1))
+                .foregroundStyle(.tint)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Load Existing Page Thumbnails
+
+    private func loadExistingPageThumbnails() async {
+        guard let doc = editingDocument else { return }
+        isLoadingExistingPages = true
+        do {
+            let key = try VaultKey.load()
+            let pages = doc.sortedPages
+            var ordered = [Int: UIImage](minimumCapacity: pages.count)
+            try await withThrowingTaskGroup(of: (Int, UIImage?).self) { group in
+                for (idx, page) in pages.enumerated() {
+                    let encData = page.encryptedImageData
+                    let nonce   = page.nonce
+                    group.addTask(priority: .userInitiated) {
+                        let jpeg = try EncryptionService.decrypt(
+                            encryptedData: encData, nonce: nonce, using: key)
+                        return (idx, UIImage(data: jpeg))
+                    }
+                }
+                for try await (idx, image) in group {
+                    ordered[idx] = image
+                }
+            }
+            existingPageThumbnails = (0..<pages.count).compactMap { ordered[$0] }
+        } catch {
+            // Thumbnails unavailable — edit still works; pages won't be shown
+        }
+        isLoadingExistingPages = false
+    }
+
     // MARK: - Save
 
     private func saveDocument() async {
@@ -307,8 +459,28 @@ struct AddDocumentView: View {
                 doc.lastVerifiedAt = hasLastVerified ? lastVerifiedAt : nil
                 doc.renewalNotes = renewalNotes
                 doc.expirationDate = hasExpiration ? expirationDate : nil
-                doc.expirationReminderDays = hasExpiration ? reminderDays : nil
+                doc.expirationReminderDays = hasExpiration ? reminderArrayOrNil : nil
                 doc.updatedAt = .now
+
+                // Append any newly captured pages to the existing document
+                if !capturedImages.isEmpty {
+                    let nextIndex = doc.pages.count
+                    for (offset, image) in capturedImages.enumerated() {
+                        let jpegData = image.jpegData(compressionQuality: 0.85) ?? Data()
+                        let (encrypted, nonce) = try await Task.detached(priority: .userInitiated) {
+                            try EncryptionService.encrypt(jpegData, using: key)
+                        }.value
+                        let page = DocumentPage(
+                            pageIndex: nextIndex + offset,
+                            encryptedImageData: encrypted,
+                            nonce: nonce,
+                            label: nil
+                        )
+                        page.document = doc
+                        modelContext.insert(page)
+                    }
+                }
+
                 ExpirationService.updateReminder(for: doc)
             } else {
                 // Create new document + encrypt pages
@@ -323,7 +495,7 @@ struct AddDocumentView: View {
                     lastVerifiedAt: hasLastVerified ? lastVerifiedAt : nil,
                     renewalNotes: renewalNotes,
                     expirationDate: hasExpiration ? expirationDate : nil,
-                    expirationReminderDays: hasExpiration ? reminderDays : nil
+                    expirationReminderDays: hasExpiration ? reminderArrayOrNil : nil
                 )
                 modelContext.insert(document)
 

@@ -58,7 +58,7 @@ enum BackupService {
         let lastVerifiedAt: Date?
         let renewalNotes: String
         let expirationDate: Date?
-        let expirationReminderDays: Int?
+        let expirationReminderDays: [Int]?
         let createdAt: Date
         let updatedAt: Date
         let isFavorite: Bool
