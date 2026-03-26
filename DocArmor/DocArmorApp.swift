@@ -50,6 +50,7 @@ struct DocArmorApp: App {
         let auth = AuthService()
         _authService    = State(initialValue: auth)
         _autoLockService = State(initialValue: AutoLockService(authService: auth))
+        excludeVaultFromBackup()
     }
 
     var body: some Scene {
@@ -103,6 +104,20 @@ struct DocArmorApp: App {
             let docType = DocumentType(rawValue: typeValue)
         else { return }
         pendingDocumentType = docType
+    }
+
+    private func excludeVaultFromBackup() {
+        let fileManager = FileManager.default
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return
+        }
+
+        for filename in ["default.store", "default.store-wal", "default.store-shm"] {
+            var url = appSupport.appendingPathComponent(filename)
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            try? url.setResourceValues(resourceValues)
+        }
     }
 }
 

@@ -38,6 +38,19 @@
 	</array>
 	<key>CFBundleDisplayName</key>
 	<string>DocArmor: Document Scanner</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>DocArmor Encrypted Backup</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.katafract.docarmor.backup</string>
+			</array>
+		</dict>
+	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>NSCameraUsageDescription</key>
@@ -46,6 +59,26 @@
 	<string>DocArmor can import documents from your photo library.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.katafract.docarmor.backup</string>
+			<key>UTTypeDescription</key>
+			<string>DocArmor Encrypted Backup</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>docarmorbackup</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

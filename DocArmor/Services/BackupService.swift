@@ -1,11 +1,16 @@
 import CryptoKit
+import CommonCrypto
 import Foundation
 import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension UTType {
+    static let docarmorBackup = UTType(exportedAs: "com.katafract.docarmor.backup")
+}
+
 struct EncryptedBackupDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.data] }
+    static var readableContentTypes: [UTType] { [.docarmorBackup, .data] }
 
     var data: Data
 
@@ -88,8 +93,7 @@ enum BackupService {
         }
     }
 
-    private static let version = 1
-    private static let keyDerivationRounds = 100_000
+    private static let version = 2
 
     static func exportBackup(
         documents: [Document],
@@ -224,7 +228,7 @@ enum BackupService {
         }
 
         let archive = try JSONDecoder().decode(BackupArchive.self, from: data)
-        guard archive.version == version else {
+        guard archive.version <= version else {
             throw BackupError.unsupportedVersion
         }
 
@@ -232,7 +236,12 @@ enum BackupService {
             throw BackupError.invalidBackup
         }
 
-        let key = try derivedKey(from: passphrase, salt: archive.salt)
+        let key: SymmetricKey
+        if archive.version == 1 {
+            key = try legacyDerivedKey(from: passphrase, salt: archive.salt)
+        } else {
+            key = try derivedKey(from: passphrase, salt: archive.salt)
+        }
         let nonce = try AES.GCM.Nonce(data: archive.nonce)
         let ciphertext = archive.ciphertext.dropLast(16)
         let tag = archive.ciphertext.suffix(16)
@@ -246,8 +255,37 @@ enum BackupService {
             throw BackupError.invalidPassphrase
         }
 
+        var keyBytes = [UInt8](repeating: 0, count: 32)
+        let result = passphraseData.withUnsafeBytes { passphrasePointer in
+            salt.withUnsafeBytes { saltPointer in
+                CCKeyDerivationPBKDF(
+                    CCPBKDFAlgorithm(kCCPBKDF2),
+                    passphrasePointer.baseAddress?.assumingMemoryBound(to: Int8.self),
+                    passphraseData.count,
+                    saltPointer.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                    salt.count,
+                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                    310_000,
+                    &keyBytes,
+                    32
+                )
+            }
+        }
+
+        guard result == kCCSuccess else {
+            throw BackupError.invalidPassphrase
+        }
+        return SymmetricKey(data: Data(keyBytes))
+    }
+
+    // Legacy v1 KDF — only used when restoring old backups.
+    private static func legacyDerivedKey(from passphrase: String, salt: Data) throws -> SymmetricKey {
+        guard let passphraseData = passphrase.data(using: .utf8), !passphraseData.isEmpty else {
+            throw BackupError.invalidPassphrase
+        }
+
         var material = Data(SHA256.hash(data: passphraseData + salt))
-        for _ in 0..<keyDerivationRounds {
+        for _ in 0..<100_000 {
             material = Data(SHA256.hash(data: material + passphraseData + salt))
         }
         return SymmetricKey(data: material)

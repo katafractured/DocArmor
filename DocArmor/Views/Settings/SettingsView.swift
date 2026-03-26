@@ -213,7 +213,7 @@ struct SettingsView: View {
             }
             .fileImporter(
                 isPresented: $showingFileImporter,
-                allowedContentTypes: [.data],
+                allowedContentTypes: [.docarmorBackup, .data],
                 allowsMultipleSelection: false
             ) { result in
                 switch result {
@@ -227,7 +227,7 @@ struct SettingsView: View {
             .fileExporter(
                 isPresented: $showingFileExporter,
                 document: backupDocument,
-                contentType: .data,
+                contentType: .docarmorBackup,
                 defaultFilename: backupFilename
             ) { result in
                 switch result {
