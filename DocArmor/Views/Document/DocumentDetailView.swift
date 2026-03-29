@@ -144,10 +144,10 @@ struct DocumentDetailView: View {
             await decryptPages()
         }
         .onAppear {
-            isBeingCaptured = UIScreen.main.isCaptured
+            updateCaptureState()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)) { _ in
-            isBeingCaptured = UIScreen.main.isCaptured
+            updateCaptureState()
         }
         .overlay {
             if isBeingCaptured { captureOverlay }
@@ -275,6 +275,14 @@ struct DocumentDetailView: View {
         // Show a privacy warning before handing the decrypted image to the
         // system share sheet, where it could be sent outside the encrypted vault.
         showingShareWarning = true
+    }
+
+    private func updateCaptureState() {
+        let activeScreen = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first(where: { $0.activationState == .foregroundActive })?
+            .screen
+        isBeingCaptured = activeScreen?.isCaptured ?? false
     }
 
     // MARK: - Delete

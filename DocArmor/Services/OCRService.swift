@@ -7,6 +7,16 @@ enum OCRService {
         var name: String?
         var documentNumber: String?
         var expirationDate: Date?
+
+        nonisolated init(
+            name: String? = nil,
+            documentNumber: String? = nil,
+            expirationDate: Date? = nil
+        ) {
+            self.name = name
+            self.documentNumber = documentNumber
+            self.expirationDate = expirationDate
+        }
     }
 
     /// Runs Vision text recognition on `image` and returns extracted field suggestions.

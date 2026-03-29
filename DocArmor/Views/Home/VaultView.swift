@@ -187,10 +187,10 @@ struct VaultView: View {
                 updateWidgetSnapshot()
             }
             .onAppear {
-                isBeingCaptured = UIScreen.main.isCaptured
+                updateCaptureState()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIScreen.capturedDidChangeNotification)) { _ in
-                isBeingCaptured = UIScreen.main.isCaptured
+                updateCaptureState()
             }
             .overlay {
                 if isBeingCaptured { captureOverlay }
@@ -506,6 +506,14 @@ struct VaultView: View {
             readyNowCount: allDocuments.filter { matches(document: $0, bundle: .readyNow) }.count
         )
         VaultSnapshotStore.save(snapshot: snapshot)
+    }
+
+    private func updateCaptureState() {
+        let activeScreen = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first(where: { $0.activationState == .foregroundActive })?
+            .screen
+        isBeingCaptured = activeScreen?.isCaptured ?? false
     }
 }
 

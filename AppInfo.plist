@@ -53,6 +53,8 @@
 	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>DocArmor uses your camera to scan documents.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

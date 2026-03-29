@@ -38,13 +38,13 @@ If you want to run the app yourself, build it from this repository in Xcode with
 ## Requirements
 
 - Xcode 26 or newer
-- iOS 17+ for development target compatibility in this repository
+- iOS 26.2 SDK / deployment target as currently configured in this repository
 - An Apple Developer account if you want to run on physical devices or distribute builds
 
 ## Project Structure
 
 - `DocArmor/` contains the main iOS app
-- `Doc​Armor​Widget​Extension/` contains the widget extension target
+- `DocArmorWidgetExtension/` contains the widget extension target
 - `AppInfo.plist` contains the main app target plist configuration
 
 ## Privacy
