@@ -13,6 +13,30 @@ enum WidgetAppGroup {
     static let identifier = "group.com.katafract.DocArmor"
 }
 
+struct WidgetEmergencyCardData: Codable, Equatable {
+    var isEnabled: Bool = false
+    var bloodType: String = ""
+    var allergies: String = ""
+    var medicalNotes: String = ""
+    var contact1Name: String = ""
+    var contact1Phone: String = ""
+    var contact2Name: String = ""
+    var contact2Phone: String = ""
+}
+
+enum WidgetEmergencyCardStore {
+    static func load() -> WidgetEmergencyCardData {
+        guard
+            let defaults = UserDefaults(suiteName: WidgetAppGroup.identifier),
+            let data = defaults.data(forKey: "emergencyCardData"),
+            let card = try? JSONDecoder().decode(WidgetEmergencyCardData.self, from: data)
+        else {
+            return WidgetEmergencyCardData()
+        }
+        return card
+    }
+}
+
 struct WidgetVaultReadinessSnapshot: Codable {
     let updatedAt: Date
     let totalDocuments: Int
@@ -229,6 +253,129 @@ struct DocArmorReadinessWidget: Widget {
                 .foregroundStyle(.primary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct EmergencyCardEntry: TimelineEntry {
+    let date: Date
+    let card: WidgetEmergencyCardData
+}
+
+struct EmergencyCardProvider: TimelineProvider {
+    func placeholder(in context: Context) -> EmergencyCardEntry {
+        EmergencyCardEntry(date: .now, card: WidgetEmergencyCardData())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (EmergencyCardEntry) -> Void) {
+        completion(EmergencyCardEntry(date: .now, card: WidgetEmergencyCardStore.load()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<EmergencyCardEntry>) -> Void) {
+        let entry = EmergencyCardEntry(date: .now, card: WidgetEmergencyCardStore.load())
+        completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(3600))))
+    }
+}
+
+struct DocArmorEmergencyCardWidget: Widget {
+    let kind = "DocArmorEmergencyCardWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: EmergencyCardProvider()) { entry in
+            EmergencyCardWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Emergency Card")
+        .description("Show lock-screen-safe emergency details and ICE contacts.")
+        .supportedFamilies([.systemSmall, .accessoryRectangular])
+    }
+}
+
+private struct EmergencyCardWidgetView: View {
+    let entry: EmergencyCardEntry
+
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        Group {
+            if entry.card.isEnabled {
+                switch family {
+                case .accessoryRectangular:
+                    rectangularView
+                default:
+                    smallView
+                }
+            } else {
+                disabledView
+            }
+        }
+        .containerBackground(Color(.systemGray6), for: .widget)
+    }
+
+    private var disabledView: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "cross.case.fill")
+                .foregroundStyle(.red)
+            Text("Set up Emergency Card in DocArmor")
+                .font(.caption2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(10)
+    }
+
+    private var rectangularView: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Label("Emergency", systemImage: "cross.case.fill")
+                .font(.caption2.bold())
+                .foregroundStyle(.red)
+
+            if !entry.card.bloodType.isEmpty {
+                Text("Blood: \(entry.card.bloodType)")
+                    .font(.caption2)
+            }
+
+            if !entry.card.allergies.isEmpty {
+                Text("Allergy: \(entry.card.allergies)")
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+
+            if !entry.card.contact1Name.isEmpty {
+                Text("ICE: \(entry.card.contact1Name) \(entry.card.contact1Phone)")
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(6)
+    }
+
+    private var smallView: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label("Emergency", systemImage: "cross.case.fill")
+                .font(.caption.bold())
+                .foregroundStyle(.red)
+
+            if !entry.card.bloodType.isEmpty {
+                Text(entry.card.bloodType)
+                    .font(.headline.bold())
+            }
+
+            if !entry.card.contact1Name.isEmpty {
+                Text(entry.card.contact1Name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(entry.card.contact1Phone)
+                    .font(.caption2)
+            }
+
+            if entry.card.contact1Name.isEmpty && !entry.card.allergies.isEmpty {
+                Text(entry.card.allergies)
+                    .font(.caption2)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(10)
     }
 }
 

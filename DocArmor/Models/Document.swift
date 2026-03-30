@@ -14,6 +14,12 @@ final class Document {
     var notes: String
     var issuerName: String
     var identifierSuffix: String
+    var ocrSuggestedIssuerName: String?
+    var ocrSuggestedIdentifier: String?
+    var ocrSuggestedExpirationDate: Date?
+    var ocrConfidenceScore: Double?
+    var ocrExtractedAt: Date?
+    var ocrStructureHintsRaw: [String]?
     var lastVerifiedAt: Date?
     var renewalNotes: String
     var expirationDate: Date?
@@ -90,6 +96,12 @@ final class Document {
         notes: String = "",
         issuerName: String = "",
         identifierSuffix: String = "",
+        ocrSuggestedIssuerName: String? = nil,
+        ocrSuggestedIdentifier: String? = nil,
+        ocrSuggestedExpirationDate: Date? = nil,
+        ocrConfidenceScore: Double? = nil,
+        ocrExtractedAt: Date? = nil,
+        ocrStructureHintsRaw: [String]? = nil,
         lastVerifiedAt: Date? = nil,
         renewalNotes: String = "",
         expirationDate: Date? = nil,
@@ -104,6 +116,12 @@ final class Document {
         self.notes = notes
         self.issuerName = issuerName
         self.identifierSuffix = identifierSuffix
+        self.ocrSuggestedIssuerName = ocrSuggestedIssuerName
+        self.ocrSuggestedIdentifier = ocrSuggestedIdentifier
+        self.ocrSuggestedExpirationDate = ocrSuggestedExpirationDate
+        self.ocrConfidenceScore = ocrConfidenceScore
+        self.ocrExtractedAt = ocrExtractedAt
+        self.ocrStructureHintsRaw = ocrStructureHintsRaw
         self.lastVerifiedAt = lastVerifiedAt
         self.renewalNotes = renewalNotes
         self.expirationDate = expirationDate

@@ -15,6 +15,7 @@ struct DocumentDetailView: View {
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
     @State private var showingShareSheet = false
+    @State private var showingShareOptions = false
     @State private var showingShareWarning = false   // pre-share privacy confirmation
     @State private var shareItems: [Any] = []
     @State private var isBeingCaptured = false
@@ -127,7 +128,7 @@ struct DocumentDetailView: View {
                     Button(action: { showingEditSheet = true }) {
                         Label("Edit", systemImage: "pencil")
                     }
-                    Button(action: shareCurrentPage) {
+                    Button(action: { showingShareOptions = true }) {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
                     .disabled(decryptedImages.isEmpty)
@@ -161,10 +162,34 @@ struct DocumentDetailView: View {
         .sheet(isPresented: $showingShareSheet) {
             ActivityViewController(activityItems: shareItems)
         }
+        .confirmationDialog("Choose Export Copy", isPresented: $showingShareOptions, titleVisibility: .visible) {
+            Button("Current Page") {
+                stageShare(items: [decryptedImages[currentPageIndex]])
+            }
+
+            if document.documentType.requiresFrontBack, let firstImage = decryptedImages.first {
+                Button("Front Only") {
+                    stageShare(items: [firstImage])
+                }
+            }
+
+            if decryptedImages.count > 1 {
+                Button("Entire Document") {
+                    stageShare(items: decryptedImages)
+                }
+            }
+
+            Button("Watermarked Current Page") {
+                stageShare(items: [watermarked(image: decryptedImages[currentPageIndex], label: "DocArmor Preview")])
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose the narrowest export that gets the job done. Shared copies leave DocArmor unencrypted.")
+        }
         // Privacy gate before sharing — exporting leaves the encrypted vault
         .alert("Export Unencrypted Image?", isPresented: $showingShareWarning) {
             Button("Export Anyway", role: .destructive) {
-                shareItems = [decryptedImages[currentPageIndex]]
                 showingShareSheet = true
             }
             Button("Cancel", role: .cancel) {}
@@ -274,7 +299,46 @@ struct DocumentDetailView: View {
         guard currentPageIndex < decryptedImages.count else { return }
         // Show a privacy warning before handing the decrypted image to the
         // system share sheet, where it could be sent outside the encrypted vault.
+        showingShareOptions = true
+    }
+
+    private func stageShare(items: [Any]) {
+        guard !items.isEmpty else { return }
+        shareItems = items
         showingShareWarning = true
+    }
+
+    private func watermarked(image: UIImage, label: String) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: image.size)
+        return renderer.image { context in
+            image.draw(at: .zero)
+
+            let inset: CGFloat = 24
+            let bannerHeight = max(44, image.size.height * 0.1)
+            let bannerRect = CGRect(
+                x: inset,
+                y: image.size.height - bannerHeight - inset,
+                width: image.size.width - (inset * 2),
+                height: bannerHeight
+            )
+
+            UIColor.black.withAlphaComponent(0.58).setFill()
+            UIBezierPath(roundedRect: bannerRect, cornerRadius: 18).fill()
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: max(18, image.size.width * 0.035)),
+                .foregroundColor: UIColor.white
+            ]
+
+            let textSize = label.size(withAttributes: attributes)
+            let textRect = CGRect(
+                x: bannerRect.minX + 18,
+                y: bannerRect.midY - (textSize.height / 2),
+                width: bannerRect.width - 36,
+                height: textSize.height
+            )
+            label.draw(in: textRect, withAttributes: attributes)
+        }
     }
 
     private func updateCaptureState() {

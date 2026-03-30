@@ -11,6 +11,66 @@ struct SettingsView: View {
         var id: String { rawValue }
     }
 
+    enum SuggestedPackKind: String, CaseIterable, Identifiable {
+        case travel
+        case vehicle
+        case family
+        case school
+        case medical
+        case work
+        case property
+        case disaster
+        case dependent
+        case pet
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .travel: return "Travel & Identity Pack"
+            case .vehicle: return "Vehicle & Roadside Pack"
+            case .family: return "Family Emergency Pack"
+            case .school: return "School Pack"
+            case .medical: return "Medical Visit Pack"
+            case .work: return "Work Credential Pack"
+            case .property: return "Property Claim Pack"
+            case .disaster: return "Grab-and-Go Pack"
+            case .dependent: return "Dependent Care Pack"
+            case .pet: return "Pet & Boarding Pack"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .travel: return "airplane.departure"
+            case .vehicle: return "car.fill"
+            case .family: return "person.3.sequence.fill"
+            case .school: return "graduationcap.fill"
+            case .medical: return "cross.case.fill"
+            case .work: return "briefcase.fill"
+            case .property: return "house.fill"
+            case .disaster: return "bolt.shield.fill"
+            case .dependent: return "person.2.crop.square.stack.fill"
+            case .pet: return "pawprint.fill"
+            }
+        }
+
+        var recommendationCaption: String {
+            switch self {
+            case .travel: return "Recommended because you already store travel, passport, or identity documents."
+            case .vehicle: return "Recommended for adult household members and roadside-ready access."
+            case .family: return "Recommended because your household spans multiple people."
+            case .school: return "Recommended because your household includes a child or dependent."
+            case .medical: return "Recommended because medical or insurance records are already present."
+            case .work: return "Recommended because work or credential records are already present."
+            case .property: return "Recommended because property or insurance records are already present."
+            case .disaster: return "Recommended to keep emergency documents together."
+            case .dependent: return "Recommended because your household includes a dependent-care role."
+            case .pet: return "Recommended because your household includes a pet profile."
+            }
+        }
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @Environment(AuthService.self) private var auth
@@ -20,8 +80,9 @@ struct SettingsView: View {
     @State private var showingResetAlert = false
     @State private var showingResetConfirm = false
     @State private var isResetting = false
-    @State private var householdMembers = HouseholdStore.loadMembers()
+    @State private var householdProfiles = HouseholdStore.loadProfiles()
     @State private var newMemberName = ""
+    @State private var newMemberRole: HouseholdRole = .adult
     @State private var showingRestoreConfirm = false
     @State private var showingFileImporter = false
     @State private var showingFileExporter = false
@@ -31,6 +92,25 @@ struct SettingsView: View {
     @State private var backupFilename = BackupService.defaultFilename()
     @State private var backupError: String?
     @State private var backupSuccessMessage: String?
+    @State private var emergencyCard = EmergencyCardStore.load()
+    @AppStorage("smartPack.travelEnabled") private var travelPackEnabled = true
+    @AppStorage("smartPack.vehicleEnabled") private var vehiclePackEnabled = true
+    @AppStorage("smartPack.familyEnabled") private var familyPackEnabled = true
+    @AppStorage("smartPack.schoolEnabled") private var schoolPackEnabled = true
+    @AppStorage("smartPack.medicalEnabled") private var medicalPackEnabled = true
+    @AppStorage("smartPack.workEnabled") private var workPackEnabled = true
+    @AppStorage("smartPack.propertyEnabled") private var propertyPackEnabled = true
+    @AppStorage("smartPack.disasterEnabled") private var disasterPackEnabled = true
+    @AppStorage("smartPack.dependentEnabled") private var dependentPackEnabled = true
+    @AppStorage("smartPack.petEnabled") private var petPackEnabled = true
+    @AppStorage("smartPack.preparednessEnabled") private var preparednessEnabled = true
+    @AppStorage("smartPack.renewalEnabled") private var renewalPackEnabled = true
+    @AppStorage("smartPack.customPacks") private var customPacksRawStorage = ""
+    @AppStorage("smartPack.customEnabled") private var legacyCustomPackEnabled = false
+    @AppStorage("smartPack.customTitle") private var legacyCustomPackTitle = "My Fast Pack"
+    @AppStorage("smartPack.customTypes") private var legacyCustomPackRawTypes =
+        DocumentType.encodePackSelection([.passport, .driversLicense, .insuranceHealth])
+    @State private var customPacks: [SavedCustomPack] = []
 
     var body: some View {
         NavigationStack {
@@ -89,34 +169,53 @@ struct SettingsView: View {
                 }
 
                 Section("Household") {
-                    if householdMembers.isEmpty {
+                    if householdProfiles.isEmpty {
                         Text("No family members added yet. Add one to organize documents per person.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(householdMembers, id: \.self) { member in
-                            HStack {
-                                Label(member, systemImage: "person.fill")
-                                Spacer()
-                                Text("\(documentCount(for: member))")
-                                    .foregroundStyle(.secondary)
-                                Button {
-                                    householdMembers = HouseholdStore.removeMember(named: member)
-                                } label: {
-                                    Image(systemName: "minus.circle.fill")
+                        ForEach(householdProfiles) { profile in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .center, spacing: 10) {
+                                    Label(profile.name, systemImage: profile.role.systemImage)
+                                    Spacer()
+                                    Text("\(documentCount(for: profile.name))")
                                         .foregroundStyle(.secondary)
+                                    Button {
+                                        householdProfiles = HouseholdStore.removeProfile(named: profile.name)
+                                    } label: {
+                                        Image(systemName: "minus.circle.fill")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
+
+                                Picker("Role", selection: householdRoleBinding(for: profile.name)) {
+                                    ForEach(HouseholdRole.allCases) { role in
+                                        Text(role.displayName).tag(role)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
                             }
                         }
                     }
 
-                    HStack {
+                    VStack(alignment: .leading, spacing: 8) {
                         TextField("Add family member", text: $newMemberName)
                             .autocorrectionDisabled()
+
+                        Picker("New member role", selection: $newMemberRole) {
+                            ForEach(HouseholdRole.allCases) { role in
+                                Text(role.displayName).tag(role)
+                            }
+                        }
+                        .pickerStyle(.menu)
+
                         Button("Add") {
-                            householdMembers = HouseholdStore.addMember(named: newMemberName)
+                            householdProfiles = HouseholdStore.addMember(named: newMemberName, role: newMemberRole)
                             newMemberName = ""
+                            newMemberRole = .adult
                         }
                         .disabled(HouseholdStore.normalize(newMemberName) == nil)
                     }
@@ -124,6 +223,259 @@ struct SettingsView: View {
                     Label("Documents can also stay shared for the whole household.", systemImage: "person.2.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("Security Status") {
+                    statusRow(
+                        title: "Vault Key",
+                        systemImage: VaultKey.exists ? "checkmark.shield.fill" : "exclamationmark.shield.fill",
+                        value: VaultKey.exists ? "Stored in Keychain" : "Not provisioned"
+                    )
+
+                    statusRow(
+                        title: "Storage",
+                        systemImage: "iphone",
+                        value: "Local-only"
+                    )
+
+                    statusRow(
+                        title: "Network Activity",
+                        systemImage: "network.slash",
+                        value: "None by design"
+                    )
+
+                    statusRow(
+                        title: "Auto-Lock",
+                        systemImage: "lock.badge.clock",
+                        value: autoLock.selectedTimeout.displayName
+                    )
+
+                    statusRow(
+                        title: "Reminder Coverage",
+                        systemImage: "bell.badge.fill",
+                        value: "\(documentsWithRemindersCount) configured"
+                    )
+
+                    statusRow(
+                        title: "Attention Queue",
+                        systemImage: "exclamationmark.triangle.fill",
+                        value: "\(attentionDocumentsCount) document(s)"
+                    )
+
+                    statusRow(
+                        title: "Backup Format",
+                        systemImage: "archivebox.fill",
+                        value: ".docarmorbackup"
+                    )
+                }
+
+                Section("On-Device Intelligence") {
+                    statusRow(
+                        title: "Apple Intelligence",
+                        systemImage: foundationModelStatusSystemImage,
+                        value: foundationModelStatusText
+                    )
+
+                    if let foundationModelFallbackDescription {
+                        Text(foundationModelFallbackDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Smart Packs") {
+                    smartPackToggle(
+                        title: "Travel & Identity Pack",
+                        caption: "Travel mode, passports, IDs, and public verification shortcuts.",
+                        isOn: $travelPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Vehicle & Roadside Pack",
+                        caption: "Roadside-ready license and auto-insurance access.",
+                        isOn: $vehiclePackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Family Emergency Pack",
+                        caption: "Household identity and medical essentials for urgent use.",
+                        isOn: $familyPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "School Pack",
+                        caption: "Enrollment and school administration documents.",
+                        isOn: $schoolPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Medical Visit Pack",
+                        caption: "Insurance, prescriptions, and intake-ready records.",
+                        isOn: $medicalPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Work Credential Pack",
+                        caption: "Onboarding and professional credential documents.",
+                        isOn: $workPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Property Claim Pack",
+                        caption: "Home-claim and housing-admin documents.",
+                        isOn: $propertyPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Grab-and-Go Pack",
+                        caption: "Disaster-response identity, medical, and insurance records.",
+                        isOn: $disasterPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Dependent Care Pack",
+                        caption: "Caregiver-ready identity, prescription, and emergency-contact records.",
+                        isOn: $dependentPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Pet & Boarding Pack",
+                        caption: "Pet boarding, vaccine, and emergency-style records.",
+                        isOn: $petPackEnabled
+                    )
+                    smartPackToggle(
+                        title: "Preparedness Checklist",
+                        caption: "Top-level dashboard summarizing readiness across scenarios.",
+                        isOn: $preparednessEnabled
+                    )
+                    smartPackToggle(
+                        title: "Renewal Workflows",
+                        caption: "Grouped renewal and attention workflows near the top of the vault.",
+                        isOn: $renewalPackEnabled
+                    )
+                }
+
+                if !packRecommendations.isEmpty {
+                    Section("Suggested Packs") {
+                        ForEach(packRecommendations) { pack in
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: pack.systemImage)
+                                    .foregroundStyle(.tint)
+                                    .frame(width: 20)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(pack.title)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text(pack.reason)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Button("Turn On") {
+                                    enableSuggestedPack(pack.key)
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+
+                if !readinessRecommendations.isEmpty {
+                    Section("Readiness Suggestions") {
+                        ForEach(readinessRecommendations) { recommendation in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label(recommendation.title, systemImage: recommendation.systemImage)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(recommendation.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+
+                Section("Custom Packs") {
+                    if customPacks.isEmpty {
+                        Text("Create reusable fast-access packs for your own scenarios.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(customPacks.indices, id: \.self) { index in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Toggle("Enabled", isOn: customPackEnabledBinding(for: index))
+                                TextField("Pack title", text: customPackTitleBinding(for: index))
+                                    .autocorrectionDisabled()
+
+                                Text("Choose the document types that should appear together in this pack.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                ForEach(DocumentType.allCases, id: \.self) { type in
+                                    Toggle(type.rawValue, isOn: customPackTypeBinding(for: index, type: type))
+                                }
+
+                                Button("Delete Pack", role: .destructive) {
+                                    removeCustomPack(at: index)
+                                }
+                                .font(.caption.weight(.semibold))
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+
+                    Button {
+                        addCustomPack()
+                    } label: {
+                        Label("Add Custom Pack", systemImage: "plus.circle.fill")
+                    }
+                }
+
+                Section {
+                    Toggle("Show Emergency Card on Lock Screen", isOn: $emergencyCard.isEnabled)
+                        .onChange(of: emergencyCard.isEnabled) { _, _ in
+                            EmergencyCardStore.save(emergencyCard)
+                        }
+
+                    if emergencyCard.isEnabled {
+                        Label(
+                            "This data is visible without unlocking DocArmor. Only add what you want emergency responders to see.",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+
+                        emergencyField("Blood Type", text: $emergencyCard.bloodType, placeholder: "e.g. O+")
+                        emergencyField(
+                            "Allergies",
+                            text: $emergencyCard.allergies,
+                            placeholder: "e.g. Penicillin, Peanuts"
+                        )
+                        emergencyField(
+                            "Medical Notes",
+                            text: $emergencyCard.medicalNotes,
+                            placeholder: "e.g. Diabetic, Pacemaker"
+                        )
+                        emergencyField(
+                            "Emergency Contact 1 Name",
+                            text: $emergencyCard.contact1Name,
+                            placeholder: "Name"
+                        )
+                        emergencyField(
+                            "Emergency Contact 1 Phone",
+                            text: $emergencyCard.contact1Phone,
+                            placeholder: "+1 555 000 0000"
+                        )
+                        emergencyField(
+                            "Emergency Contact 2 Name",
+                            text: $emergencyCard.contact2Name,
+                            placeholder: "Name"
+                        )
+                        emergencyField(
+                            "Emergency Contact 2 Phone",
+                            text: $emergencyCard.contact2Phone,
+                            placeholder: "+1 555 000 0000"
+                        )
+                    }
+                } header: {
+                    Label("Emergency Card", systemImage: "cross.case.fill")
+                        .foregroundStyle(.red)
+                } footer: {
+                    Text("Visible on the lock screen to emergency responders when the widget is added.")
                 }
 
                 // MARK: About
@@ -247,6 +599,9 @@ struct SettingsView: View {
             } message: {
                 Text(backupSuccessMessage ?? "Done.")
             }
+            .task {
+                migrateLegacyCustomPacksIfNeeded()
+            }
         }
     }
 
@@ -284,7 +639,7 @@ struct SettingsView: View {
             case .export:
                 backupDocument = try BackupService.exportBackup(
                     documents: allDocuments,
-                    householdMembers: householdMembers,
+                    householdMembers: householdProfiles.map(\.name),
                     passphrase: passphrase
                 )
                 backupFilename = BackupService.defaultFilename()
@@ -303,7 +658,7 @@ struct SettingsView: View {
 
                 let data = try Data(contentsOf: importURL)
                 try BackupService.restoreBackup(from: data, passphrase: passphrase, into: modelContext)
-                householdMembers = HouseholdStore.loadMembers()
+                householdProfiles = HouseholdStore.loadProfiles()
                 pendingImportURL = nil
                 backupSuccessMessage = "Encrypted backup restored successfully."
             }
@@ -361,6 +716,198 @@ struct SettingsView: View {
         allDocuments.filter { $0.ownerDisplayName == member }.count
     }
 
+    private func householdRoleBinding(for memberName: String) -> Binding<HouseholdRole> {
+        Binding(
+            get: { HouseholdStore.role(for: memberName) ?? .adult },
+            set: { newRole in
+                householdProfiles = HouseholdStore.updateRole(for: memberName, role: newRole)
+            }
+        )
+    }
+
+    private var documentsWithRemindersCount: Int {
+        allDocuments.filter { !($0.expirationReminderDays ?? []).isEmpty }.count
+    }
+
+    private var enabledPackKeys: Set<LocalIntelligenceRecommendationService.SmartPackKey> {
+        var keys: Set<LocalIntelligenceRecommendationService.SmartPackKey> = []
+        if travelPackEnabled { keys.insert(.travel) }
+        if vehiclePackEnabled { keys.insert(.vehicle) }
+        if familyPackEnabled { keys.insert(.family) }
+        if schoolPackEnabled { keys.insert(.school) }
+        if medicalPackEnabled { keys.insert(.medical) }
+        if workPackEnabled { keys.insert(.work) }
+        if propertyPackEnabled { keys.insert(.property) }
+        if disasterPackEnabled { keys.insert(.disaster) }
+        if dependentPackEnabled { keys.insert(.dependent) }
+        if petPackEnabled { keys.insert(.pet) }
+        return keys
+    }
+
+    private var packRecommendations: [LocalIntelligenceRecommendationService.PackRecommendation] {
+        LocalIntelligenceRecommendationService.packRecommendations(
+            documents: allDocuments,
+            householdProfiles: householdProfiles,
+            enabledPacks: enabledPackKeys
+        )
+    }
+
+    private var readinessRecommendations: [LocalIntelligenceRecommendationService.ReadinessRecommendation] {
+        LocalIntelligenceRecommendationService.readinessRecommendations(
+            documents: allDocuments,
+            householdProfiles: householdProfiles
+        )
+    }
+
+    private var attentionDocumentsCount: Int {
+        allDocuments.filter(\.needsAttention).count
+    }
+
+    private var foundationModelStatusText: String {
+        switch FoundationModelAvailabilityService.currentStatus {
+        case .available:
+            return "Available"
+        case .unavailable:
+            return "Fallback Mode"
+        }
+    }
+
+    private var foundationModelStatusSystemImage: String {
+        switch FoundationModelAvailabilityService.currentStatus {
+        case .available:
+            return "sparkles.rectangle.stack.fill"
+        case .unavailable:
+            return "cpu"
+        }
+    }
+
+    private var foundationModelFallbackDescription: String? {
+        FoundationModelAvailabilityService.fallbackReason?.userFacingDescription
+    }
+
+    private func statusRow(title: String, systemImage: String, value: String) -> some View {
+        HStack {
+            Label(title, systemImage: systemImage)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func enableSuggestedPack(_ pack: LocalIntelligenceRecommendationService.SmartPackKey) {
+        switch pack {
+        case .travel:
+            travelPackEnabled = true
+        case .vehicle:
+            vehiclePackEnabled = true
+        case .family:
+            familyPackEnabled = true
+        case .school:
+            schoolPackEnabled = true
+        case .medical:
+            medicalPackEnabled = true
+        case .work:
+            workPackEnabled = true
+        case .property:
+            propertyPackEnabled = true
+        case .disaster:
+            disasterPackEnabled = true
+        case .dependent:
+            dependentPackEnabled = true
+        case .pet:
+            petPackEnabled = true
+        }
+    }
+
+    private func migrateLegacyCustomPacksIfNeeded() {
+        if !customPacks.isEmpty {
+            return
+        }
+
+        let decoded = SavedCustomPack.decodeList(from: customPacksRawStorage)
+        if !decoded.isEmpty {
+            customPacks = decoded
+            return
+        }
+
+        let legacyTypes = DocumentType.decodePackSelection(from: legacyCustomPackRawTypes)
+        guard !legacyTypes.isEmpty else { return }
+
+        let migrated = [
+            SavedCustomPack(
+                title: legacyCustomPackTitle,
+                isEnabled: legacyCustomPackEnabled,
+                documentTypes: legacyTypes
+            )
+        ]
+        persistCustomPacks(migrated)
+    }
+
+    private func persistCustomPacks(_ packs: [SavedCustomPack]) {
+        customPacks = packs
+        customPacksRawStorage = SavedCustomPack.encodeList(packs)
+    }
+
+    private func addCustomPack() {
+        var packs = customPacks
+        packs.append(SavedCustomPack(title: "My Fast Pack", isEnabled: true, documentTypes: [.passport, .driversLicense]))
+        persistCustomPacks(packs)
+    }
+
+    private func removeCustomPack(at index: Int) {
+        guard customPacks.indices.contains(index) else { return }
+        var packs = customPacks
+        packs.remove(at: index)
+        persistCustomPacks(packs)
+    }
+
+    private func customPackTitleBinding(for index: Int) -> Binding<String> {
+        Binding(
+            get: { customPacks.indices.contains(index) ? customPacks[index].title : "" },
+            set: { title in
+                guard customPacks.indices.contains(index) else { return }
+                var packs = customPacks
+                packs[index].title = title
+                persistCustomPacks(packs)
+            }
+        )
+    }
+
+    private func customPackEnabledBinding(for index: Int) -> Binding<Bool> {
+        Binding(
+            get: { customPacks.indices.contains(index) ? customPacks[index].isEnabled : false },
+            set: { isEnabled in
+                guard customPacks.indices.contains(index) else { return }
+                var packs = customPacks
+                packs[index].isEnabled = isEnabled
+                persistCustomPacks(packs)
+            }
+        )
+    }
+
+    private func customPackTypeBinding(for index: Int, type: DocumentType) -> Binding<Bool> {
+        Binding(
+            get: {
+                guard customPacks.indices.contains(index) else { return false }
+                return customPacks[index].documentTypes.contains(type)
+            },
+            set: { isSelected in
+                guard customPacks.indices.contains(index) else { return }
+                var packs = customPacks
+                var updatedTypes = packs[index].documentTypes
+                if isSelected {
+                    if !updatedTypes.contains(type) {
+                        updatedTypes.append(type)
+                    }
+                } else {
+                    updatedTypes.removeAll { $0 == type }
+                }
+                packs[index].encodedTypes = DocumentType.encodePackSelection(updatedTypes)
+                persistCustomPacks(packs)
+            }
+        )
+    }
+
     @ViewBuilder
     private func externalLinkRow(title: String, systemImage: String, urlString: String) -> some View {
         if let url = URL(string: urlString) {
@@ -378,6 +925,31 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    @ViewBuilder
+    private func emergencyField(_ label: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField(placeholder, text: text)
+                .autocorrectionDisabled()
+                .onChange(of: text.wrappedValue) { _, _ in
+                    EmergencyCardStore.save(emergencyCard)
+                }
+        }
+    }
+
+    @ViewBuilder
+    private func smartPackToggle(title: String, caption: String, isOn: Binding<Bool>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(title, isOn: isOn)
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
     }
 }
 

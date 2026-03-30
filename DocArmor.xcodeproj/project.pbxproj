@@ -10,6 +10,7 @@
 		BC3811822F7397AC00CE6623 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC3811812F7397AC00CE6623 /* WidgetKit.framework */; };
 		BC3811842F7397AC00CE6623 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC3811832F7397AC00CE6623 /* SwiftUI.framework */; };
 		BC3811912F7397AE00CE6623 /* DocArmorWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BC38117F2F7397AC00CE6623 /* DocArmorWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D0C0A1012F90000100C0FFEE /* DocArmorShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D0C0A1002F90000100C0FFEE /* DocArmorShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,7 +19,14 @@
 			containerPortal = 9B28CB2CAE2648C2AB2AC2BB /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BC38117E2F7397AC00CE6623;
-			remoteInfo = "DocArmorWidgetExtension";
+			remoteInfo = DocArmorWidgetExtension;
+		};
+		D0C0A1032F90000100C0FFEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9B28CB2CAE2648C2AB2AC2BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D0C0A10A2F90000100C0FFEE;
+			remoteInfo = DocArmorShareExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -30,6 +38,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				BC3811912F7397AE00CE6623 /* DocArmorWidgetExtension.appex in Embed Foundation Extensions */,
+				D0C0A1012F90000100C0FFEE /* DocArmorShareExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -37,10 +46,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		BC38117F2F7397AC00CE6623 /* DocArmorWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "DocArmorWidgetExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BC38117F2F7397AC00CE6623 /* DocArmorWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DocArmorWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC3811812F7397AC00CE6623 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		BC3811832F7397AC00CE6623 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		CCC915A576C44C2F9A6E6450 /* DocArmor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DocArmor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0C0A1002F90000100C0FFEE /* DocArmorShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DocArmorShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,6 +60,13 @@
 				Info.plist,
 			);
 			target = BC38117E2F7397AC00CE6623 /* DocArmorWidgetExtension */;
+		};
+		D0C0A1042F90000100C0FFEE /* Exceptions for "DocArmorShareExtension" folder in "DocArmorShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D0C0A10A2F90000100C0FFEE /* DocArmorShareExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -64,7 +81,15 @@
 			exceptions = (
 				BC3811922F7397AE00CE6623 /* Exceptions for "DocArmorWidgetExtension" folder in "DocArmorWidgetExtension" target */,
 			);
-			path = "DocArmorWidgetExtension";
+			path = DocArmorWidgetExtension;
+			sourceTree = "<group>";
+		};
+		D0C0A1052F90000100C0FFEE /* DocArmorShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D0C0A1042F90000100C0FFEE /* Exceptions for "DocArmorShareExtension" folder in "DocArmorShareExtension" target */,
+			);
+			path = DocArmorShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -86,6 +111,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D0C0A1072F90000100C0FFEE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -94,6 +126,7 @@
 			children = (
 				CCC915A576C44C2F9A6E6450 /* DocArmor.app */,
 				BC38117F2F7397AC00CE6623 /* DocArmorWidgetExtension.appex */,
+				D0C0A1002F90000100C0FFEE /* DocArmorShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,6 +145,7 @@
 			children = (
 				4CDC3B3D17A545FEA820D9F2 /* DocArmor */,
 				BC3811852F7397AC00CE6623 /* DocArmorWidgetExtension */,
+				D0C0A1052F90000100C0FFEE /* DocArmorShareExtension */,
 				BC3811802F7397AC00CE6623 /* Frameworks */,
 				7F31E9617BF54703BCB8493C /* Products */,
 			);
@@ -133,6 +167,7 @@
 			);
 			dependencies = (
 				BC3811902F7397AE00CE6623 /* PBXTargetDependency */,
+				D0C0A1022F90000100C0FFEE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4CDC3B3D17A545FEA820D9F2 /* DocArmor */,
@@ -159,11 +194,33 @@
 			fileSystemSynchronizedGroups = (
 				BC3811852F7397AC00CE6623 /* DocArmorWidgetExtension */,
 			);
-			name = "DocArmorWidgetExtension";
+			name = DocArmorWidgetExtension;
 			packageProductDependencies = (
 			);
-			productName = "DocArmorWidgetExtension";
+			productName = DocArmorWidgetExtension;
 			productReference = BC38117F2F7397AC00CE6623 /* DocArmorWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		D0C0A10A2F90000100C0FFEE /* DocArmorShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0C0A10B2F90000100C0FFEE /* Build configuration list for PBXNativeTarget "DocArmorShareExtension" */;
+			buildPhases = (
+				D0C0A1062F90000100C0FFEE /* Sources */,
+				D0C0A1072F90000100C0FFEE /* Frameworks */,
+				D0C0A1082F90000100C0FFEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D0C0A1052F90000100C0FFEE /* DocArmorShareExtension */,
+			);
+			name = DocArmorShareExtension;
+			packageProductDependencies = (
+			);
+			productName = DocArmorShareExtension;
+			productReference = D0C0A1002F90000100C0FFEE /* DocArmorShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -180,6 +237,9 @@
 						CreatedOnToolsVersion = 26.3;
 					};
 					BC38117E2F7397AC00CE6623 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					D0C0A10A2F90000100C0FFEE = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -200,6 +260,7 @@
 			targets = (
 				268164EE7D2044D1A8DDB1F4 /* DocArmor */,
 				BC38117E2F7397AC00CE6623 /* DocArmorWidgetExtension */,
+				D0C0A10A2F90000100C0FFEE /* DocArmorShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -213,6 +274,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BC38117D2F7397AC00CE6623 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D0C0A1082F90000100C0FFEE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -236,6 +304,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D0C0A1062F90000100C0FFEE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -243,6 +318,11 @@
 			isa = PBXTargetDependency;
 			target = BC38117E2F7397AC00CE6623 /* DocArmorWidgetExtension */;
 			targetProxy = BC38118F2F7397AE00CE6623 /* PBXContainerItemProxy */;
+		};
+		D0C0A1022F90000100C0FFEE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D0C0A10A2F90000100C0FFEE /* DocArmorShareExtension */;
+			targetProxy = D0C0A1032F90000100C0FFEE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -259,7 +339,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AppInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "DocArmor: Document Scanner";
+				INFOPLIST_KEY_CFBundleDisplayName = DocArmor;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSCameraUsageDescription = "DocArmor uses your camera to scan documents.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Katafract LLC";
@@ -352,8 +432,8 @@
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 2SGGP65W6C;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "DocArmorWidgetExtension/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "DocArmorWidgetExtension";
+				INFOPLIST_FILE = DocArmorWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DocArmorWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -383,8 +463,8 @@
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 2SGGP65W6C;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "DocArmorWidgetExtension/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "DocArmorWidgetExtension";
+				INFOPLIST_FILE = DocArmorWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = DocArmorWidgetExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -393,6 +473,63 @@
 				);
 				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.katafract.DocArmor.Doc-Armor-Widget-Extension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D0C0A10C2F90000100C0FFEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 2SGGP65W6C;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DocArmorShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Save to DocArmor";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.katafract.DocArmor.shareextension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D0C0A10D2F90000100C0FFEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 2SGGP65W6C;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DocArmorShareExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Save to DocArmor";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.katafract.DocArmor.shareextension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -416,7 +553,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = AppInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "DocArmor: Document Scanner";
+				INFOPLIST_KEY_CFBundleDisplayName = DocArmor;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSCameraUsageDescription = "DocArmor uses your camera to scan documents.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "DocArmor uses Face ID to protect your documents.";
@@ -536,6 +673,15 @@
 			buildConfigurations = (
 				BC3811942F7397AE00CE6623 /* Debug */,
 				BC3811952F7397AE00CE6623 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0C0A10B2F90000100C0FFEE /* Build configuration list for PBXNativeTarget "DocArmorShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0C0A10C2F90000100C0FFEE /* Debug */,
+				D0C0A10D2F90000100C0FFEE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -6,6 +6,9 @@ struct TravelModeView: View {
     @Query(sort: \Document.name) private var allDocuments: [Document]
 
     @State private var navigationPath = NavigationPath()
+    @State private var showingQuickPresent = false
+    @State private var quickPresentImages: [UIImage] = []
+    @State private var quickPresentDocumentName = ""
 
     private let travelTypes: Set<DocumentType> = [
         .passport, .driversLicense, .stateID, .globalEntry,
@@ -26,6 +29,16 @@ struct TravelModeView: View {
         travelDocuments.filter { $0.needsAttention }
     }
 
+    private var householdTravelGaps: [TravelGap] {
+        HouseholdStore.loadMembers().compactMap { member in
+            let docs = travelDocuments.filter { $0.ownerDisplayName == member }
+            let presentTypes = Set(docs.map(\.documentType))
+            let required: [DocumentType] = [.passport, .driversLicense]
+            let missing = required.filter { !presentTypes.contains($0) }
+            return missing.isEmpty ? nil : TravelGap(ownerName: member, missingTypes: missing)
+        }
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             Group {
@@ -37,12 +50,59 @@ struct TravelModeView: View {
                     )
                 } else {
                     List {
+                        Section("Travel Readiness") {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    summaryCard(
+                                        title: "Ready",
+                                        value: "\(readyDocuments.count)",
+                                        caption: "Travel docs without active issues",
+                                        systemImage: "checkmark.shield.fill",
+                                        color: .green
+                                    )
+                                    summaryCard(
+                                        title: "Needs Attention",
+                                        value: "\(attentionDocuments.count)",
+                                        caption: "Expired, stale, or incomplete",
+                                        systemImage: "exclamationmark.triangle.fill",
+                                        color: .orange
+                                    )
+                                    summaryCard(
+                                        title: "People Missing ID",
+                                        value: "\(householdTravelGaps.count)",
+                                        caption: "Passport or license still missing",
+                                        systemImage: "person.crop.circle.badge.exclamationmark",
+                                        color: .secondary
+                                    )
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+
+                        if !householdTravelGaps.isEmpty {
+                            Section("Missing Travel Identity") {
+                                ForEach(householdTravelGaps) { gap in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Label(gap.ownerName, systemImage: "person.crop.circle")
+                                            .font(.subheadline.weight(.semibold))
+                                        Text(gap.summary)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                        }
+
                         if !readyDocuments.isEmpty {
                             Section {
                                 ForEach(readyDocuments) { doc in
                                     DocumentRow(document: doc)
                                         .contentShape(Rectangle())
                                         .onTapGesture { navigationPath.append(doc) }
+                                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                            quickPresentAction(for: doc)
+                                        }
                                 }
                             } header: {
                                 Label("Ready to Travel", systemImage: "checkmark.shield.fill")
@@ -57,6 +117,9 @@ struct TravelModeView: View {
                                     DocumentRow(document: doc)
                                         .contentShape(Rectangle())
                                         .onTapGesture { navigationPath.append(doc) }
+                                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                            quickPresentAction(for: doc)
+                                        }
                                 }
                             } header: {
                                 Label("Needs Attention", systemImage: "exclamationmark.triangle.fill")
@@ -78,7 +141,96 @@ struct TravelModeView: View {
             .navigationDestination(for: Document.self) { document in
                 DocumentDetailView(document: document)
             }
+            .fullScreenCover(isPresented: $showingQuickPresent) {
+                PresentModeView(
+                    images: quickPresentImages,
+                    documentName: quickPresentDocumentName
+                )
+            }
         }
+    }
+
+    @ViewBuilder
+    private func quickPresentAction(for document: Document) -> some View {
+        Button {
+            Task { await showNow(document) }
+        } label: {
+            Label("Show Now", systemImage: "rectangle.on.rectangle.circle.fill")
+        }
+        .tint(.blue)
+    }
+
+    private func summaryCard(
+        title: String,
+        value: String,
+        caption: String,
+        systemImage: String,
+        color: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.title2.bold())
+            Text(caption)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 170, alignment: .leading)
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    @MainActor
+    private func showNow(_ document: Document) async {
+        guard !document.sortedPages.isEmpty else { return }
+
+        do {
+            let key = try VaultKey.load()
+            var orderedImages = [Int: UIImage]()
+
+            try await withThrowingTaskGroup(of: (Int, UIImage?).self) { group in
+                for page in document.sortedPages {
+                    let encryptedData = page.encryptedImageData
+                    let nonce = page.nonce
+                    let index = page.pageIndex
+                    group.addTask(priority: .userInitiated) {
+                        let data = try EncryptionService.decrypt(
+                            encryptedData: encryptedData,
+                            nonce: nonce,
+                            using: key
+                        )
+                        return (index, UIImage(data: data))
+                    }
+                }
+
+                for try await (index, image) in group {
+                    if let image {
+                        orderedImages[index] = image
+                    }
+                }
+            }
+
+            quickPresentImages = document.sortedPages.compactMap { orderedImages[$0.pageIndex] }
+            guard !quickPresentImages.isEmpty else { return }
+            quickPresentDocumentName = document.name
+            showingQuickPresent = true
+        } catch {
+            // Fall back to the standard detail view if present mode cannot be prepared.
+        }
+    }
+}
+
+private struct TravelGap: Identifiable {
+    let ownerName: String
+    let missingTypes: [DocumentType]
+
+    var id: String { ownerName }
+
+    var summary: String {
+        "Missing \(missingTypes.map(\.rawValue).joined(separator: " and "))."
     }
 }
 

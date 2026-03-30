@@ -56,6 +56,11 @@ Documentation links used by the app:
 - Privacy: `https://katafract.com/privacy/docarmor`
 - Terms: `https://katafract.com/terms/docarmor`
 
+## Project Policies
+
+- Versioning policy: [`VERSIONING.md`](VERSIONING.md)
+- Security architecture: [`SECURITY.md`](SECURITY.md)
+
 ## Status
 
 DocArmor is under active development. Security-sensitive changes should be reviewed carefully, especially anything touching encryption, key handling, backup/restore, file import/export, or widget data sharing.

@@ -1,5 +1,49 @@
 import Foundation
 
+struct SavedCustomPack: Codable, Hashable, Identifiable {
+    var id: UUID
+    var title: String
+    var isEnabled: Bool
+    var encodedTypes: String
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        isEnabled: Bool = true,
+        documentTypes: [DocumentType]
+    ) {
+        self.id = id
+        self.title = title
+        self.isEnabled = isEnabled
+        self.encodedTypes = DocumentType.encodePackSelection(documentTypes)
+    }
+
+    var documentTypes: [DocumentType] {
+        DocumentType.decodePackSelection(from: encodedTypes)
+    }
+
+    var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Custom Pack" : trimmed
+    }
+
+    static func decodeList(from rawValue: String) -> [SavedCustomPack] {
+        guard let data = rawValue.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([SavedCustomPack].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
+
+    static func encodeList(_ packs: [SavedCustomPack]) -> String {
+        guard let data = try? JSONEncoder().encode(packs),
+              let string = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        return string
+    }
+}
+
 enum DocumentType: String, CaseIterable, Codable, Hashable {
     // Identity
     case driversLicense  = "Driver's License"
@@ -95,5 +139,18 @@ enum DocumentType: String, CaseIterable, Codable, Hashable {
         case .professionalLicense:   return "rosette"
         case .custom:                return "doc.fill"
         }
+    }
+
+    static func decodePackSelection(from rawValueList: String) -> [DocumentType] {
+        rawValueList
+            .split(separator: "|")
+            .compactMap { DocumentType(rawValue: String($0)) }
+    }
+
+    static func encodePackSelection(_ types: [DocumentType]) -> String {
+        types
+            .sorted { $0.rawValue.localizedCaseInsensitiveCompare($1.rawValue) == .orderedAscending }
+            .map(\.rawValue)
+            .joined(separator: "|")
     }
 }

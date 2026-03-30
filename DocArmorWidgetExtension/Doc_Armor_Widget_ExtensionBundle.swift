@@ -13,5 +13,6 @@ struct Doc_Armor_Widget_ExtensionBundle: WidgetBundle {
     var body: some Widget {
         DocArmorQuickLaunchWidget()
         DocArmorReadinessWidget()
+        DocArmorEmergencyCardWidget()
     }
 }
