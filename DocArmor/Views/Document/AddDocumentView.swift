@@ -82,11 +82,60 @@ struct AddDocumentView: View {
     @State private var hasAppliedInitialImport = false
     @State private var cropImageIndex: Int? = nil
 
+    // MARK: - Scan-first onboarding stage (new document flow only)
+
+    private enum OnboardingStage { case capture, processing, review }
+    @State private var stage: OnboardingStage = .capture
+    @State private var processingSubtitle: String = "Detecting text…"
+    @State private var autoFilledFields: Set<String> = []
+    @State private var showBackSidePrompt: Bool = false
+
     private var isEditing: Bool { editingDocument != nil }
 
     var body: some View {
+        if !isEditing && stage == .capture {
+            DocumentCaptureStageView(
+                selectedType: selectedType,
+                pendingInboxItemsCount: pendingInboxItems.count,
+                onImagesReady: { images in
+                    capturedImages = images
+                    updatePageLabels()
+                    stage = .processing
+                },
+                onImportInbox: { Task { await consumeInboxItemsForCapture() } },
+                onCancel: { dismiss() }
+            )
+        } else if !isEditing && stage == .processing {
+            processingView
+        } else {
         NavigationStack {
             Form {
+                // MARK: Back-side prompt (scan-first flow)
+                if showBackSidePrompt {
+                    Section {
+                        HStack(spacing: 12) {
+                            Image(systemName: "creditcard.and.arrow.forward")
+                                .foregroundStyle(.tint)
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Add the back side")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Complete the scan with the back of this card.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Add") {
+                                showBackSidePrompt = false
+                                stage = .capture
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 // MARK: Document Info
                 Section("Document Info") {
                     TextField("Name (e.g. John's Passport)", text: $name)
@@ -555,6 +604,30 @@ struct AddDocumentView: View {
                 Text(duplicateResolutionMessage)
             }
         }
+        } // else: review / edit form
+    }
+
+    // MARK: - Processing view (scan-first flow)
+
+    private var processingView: some View {
+        ZStack {
+            Color(uiColor: .systemBackground).ignoresSafeArea()
+            VStack(spacing: 24) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .padding(.bottom, 4)
+                Text("Reading your document…")
+                    .font(.title3.weight(.semibold))
+                Text(processingSubtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: processingSubtitle)
+            }
+        }
+        .task {
+            await runOCRThenTransition()
+        }
     }
 
     private var bestDuplicateMatch: DuplicateMatch? {
@@ -677,6 +750,88 @@ struct AddDocumentView: View {
         pageStructureHints = structureHints
     }
 
+    // MARK: - Scan-first transition helpers
+
+    private func runOCRThenTransition() async {
+        processingSubtitle = "Detecting text…"
+        await runOCR(on: capturedImages)
+        processingSubtitle = "Analyzing fields…"
+        autoApplySuggestions()
+        buildSmartDocumentName()
+        if selectedType.requiresFrontBack && capturedImages.count < 2 {
+            showBackSidePrompt = true
+        }
+        stage = .review
+    }
+
+    private func autoApplySuggestions() {
+        let shouldAutoFill = (ocrConfidenceScore ?? 0) >= 0.65 || ocrSuggestionSource == .foundationModel
+        guard shouldAutoFill else { return }
+
+        if let n = suggestedName, !n.isEmpty {
+            name = n
+            autoFilledFields.insert("name")
+            suggestedName = nil
+        }
+        if let expiry = suggestedExpiry {
+            hasExpiration = true
+            expirationDate = expiry
+            autoFilledFields.insert("expiry")
+            suggestedExpiry = nil
+        }
+        if let issuer = suggestedIssuer, !issuer.isEmpty {
+            issuerName = issuer
+            autoFilledFields.insert("issuer")
+            suggestedIssuer = nil
+        }
+        if let docNum = suggestedDocNumber, !docNum.isEmpty {
+            identifierSuffix = docNum
+            autoFilledFields.insert("docNumber")
+            suggestedDocNumber = nil
+        }
+        if let sType = suggestedType {
+            selectedType = sType
+            selectedCategory = sType.defaultCategory
+            updatePageLabels()
+            autoFilledFields.insert("type")
+            suggestedType = nil
+            suggestedCategory = nil
+        }
+        if let sOwner = suggestedOwnerName {
+            selectedOwnerName = sOwner
+            autoFilledFields.insert("owner")
+            suggestedOwnerName = nil
+        }
+    }
+
+    private func buildSmartDocumentName() {
+        guard name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        if let personName = suggestedName, !personName.isEmpty {
+            let firstName = personName.components(separatedBy: " ").first ?? personName
+            name = "\(firstName)'s \(selectedType.rawValue)"
+        } else {
+            name = selectedType.rawValue
+        }
+    }
+
+    /// Imports pending inbox items and transitions to the processing stage (new-doc scan-first flow).
+    private func consumeInboxItemsForCapture() async {
+        let items = pendingInboxItems
+        guard !items.isEmpty else { return }
+        do {
+            let result = try DocumentImportNormalizationService.normalize(urls: items.map(\.fileURL))
+            capturedImages = result.images
+            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let n = result.suggestedName, !n.isEmpty { name = n }
+            for item in items { try? ImportInboxService.consume(item) }
+            refreshPendingInboxItems()
+            updatePageLabels()
+            stage = .processing
+        } catch {
+            // best-effort; user can use other import paths from capture screen
+        }
+    }
+
     private func importFiles(from urls: [URL]) async {
         do {
             let result = try DocumentImportNormalizationService.normalize(urls: urls)
@@ -740,7 +895,14 @@ struct AddDocumentView: View {
             name = initialDocumentName
         }
         updatePageLabels()
-        Task { await runOCR(on: initialImportedImages) }
+
+        if isEditing {
+            // Edit mode: run OCR directly (no stage machine)
+            Task { await runOCR(on: initialImportedImages) }
+        } else {
+            // New doc: go straight to processing stage; processingView.task handles OCR
+            stage = .processing
+        }
     }
 
     private func suggestionChip(label: String, action: @escaping () -> Void) -> some View {
