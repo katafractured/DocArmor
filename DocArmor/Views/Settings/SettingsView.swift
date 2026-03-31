@@ -114,6 +114,12 @@ struct SettingsView: View {
     @State private var foundationModelStatus: FoundationModelAvailabilityService.Status = .unavailable(.frameworkUnavailable)
     @State private var vaultKeyExists: Bool = false
 
+    // Cached derived state — recomputed only when inputs change, not on every render
+    @State private var cachedPackRecommendations: [LocalIntelligenceRecommendationService.PackRecommendation] = []
+    @State private var cachedReadinessRecommendations: [LocalIntelligenceRecommendationService.ReadinessRecommendation] = []
+    @State private var cachedAttentionCount: Int = 0
+    @State private var cachedRemindersCount: Int = 0
+
     var body: some View {
         NavigationStack {
             Form {
@@ -605,8 +611,28 @@ struct SettingsView: View {
                 migrateLegacyCustomPacksIfNeeded()
                 vaultKeyExists = VaultKey.exists
                 foundationModelStatus = FoundationModelAvailabilityService.currentStatus
+                refreshDerivedState()
             }
+            .onChange(of: allDocuments) { refreshDerivedState() }
+            .onChange(of: householdProfiles) { refreshDerivedState() }
+            .onChange(of: packEnabledFingerprint) { refreshDerivedState() }
         }
+    }
+
+    // MARK: - Derived state cache
+
+    private func refreshDerivedState() {
+        cachedPackRecommendations = LocalIntelligenceRecommendationService.packRecommendations(
+            documents: allDocuments,
+            householdProfiles: householdProfiles,
+            enabledPacks: enabledPackKeys
+        )
+        cachedReadinessRecommendations = LocalIntelligenceRecommendationService.readinessRecommendations(
+            documents: allDocuments,
+            householdProfiles: householdProfiles
+        )
+        cachedAttentionCount = allDocuments.filter(\.needsAttention).count
+        cachedRemindersCount = allDocuments.filter { !($0.expirationReminderDays ?? []).isEmpty }.count
     }
 
     // MARK: - Reset Vault
@@ -729,9 +755,7 @@ struct SettingsView: View {
         )
     }
 
-    private var documentsWithRemindersCount: Int {
-        allDocuments.filter { !($0.expirationReminderDays ?? []).isEmpty }.count
-    }
+    private var documentsWithRemindersCount: Int { cachedRemindersCount }
 
     private var enabledPackKeys: Set<LocalIntelligenceRecommendationService.SmartPackKey> {
         var keys: Set<LocalIntelligenceRecommendationService.SmartPackKey> = []
@@ -749,23 +773,23 @@ struct SettingsView: View {
     }
 
     private var packRecommendations: [LocalIntelligenceRecommendationService.PackRecommendation] {
-        LocalIntelligenceRecommendationService.packRecommendations(
-            documents: allDocuments,
-            householdProfiles: householdProfiles,
-            enabledPacks: enabledPackKeys
-        )
+        cachedPackRecommendations
     }
 
     private var readinessRecommendations: [LocalIntelligenceRecommendationService.ReadinessRecommendation] {
-        LocalIntelligenceRecommendationService.readinessRecommendations(
-            documents: allDocuments,
-            householdProfiles: householdProfiles
-        )
+        cachedReadinessRecommendations
     }
 
-    private var attentionDocumentsCount: Int {
-        allDocuments.filter(\.needsAttention).count
+    /// Cheap fingerprint of all pack-enabled toggles — used as onChange trigger.
+    private var packEnabledFingerprint: Int {
+        [travelPackEnabled, vehiclePackEnabled, familyPackEnabled, schoolPackEnabled,
+         medicalPackEnabled, workPackEnabled, propertyPackEnabled, disasterPackEnabled,
+         dependentPackEnabled, petPackEnabled]
+            .enumerated()
+            .reduce(0) { acc, pair in pair.element ? acc | (1 << pair.offset) : acc }
     }
+
+    private var attentionDocumentsCount: Int { cachedAttentionCount }
 
     private var foundationModelStatusText: String {
         switch foundationModelStatus {
