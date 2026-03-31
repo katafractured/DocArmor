@@ -297,7 +297,7 @@ struct VaultView: View {
     }
 
     private var schoolProfiles: [HouseholdMemberProfile] {
-        householdProfiles.filter { [.child, .dependent].contains($0.role) }
+        householdProfiles.filter { $0.role == .child }
     }
 
     private var workProfiles: [HouseholdMemberProfile] {
@@ -305,7 +305,7 @@ struct VaultView: View {
     }
 
     private var dependentProfiles: [HouseholdMemberProfile] {
-        householdProfiles.filter { [.child, .senior, .dependent].contains($0.role) }
+        householdProfiles.filter { [.child, .senior].contains($0.role) }
     }
 
     private var petProfiles: [HouseholdMemberProfile] {
@@ -1448,7 +1448,7 @@ struct VaultView: View {
         case "school", "student":
             return ["enrollment", "vaccine", "birth", "insurance"]
         case "family", "household":
-            return ["shared", "dependent", "child", "senior", "pet"]
+            return ["shared", "child", "senior", "pet"]
         case "pet", "boarding", "vet":
             return ["vaccine", "prescription", "medical", "animal"]
         case "tax", "duty", "store":

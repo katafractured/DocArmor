@@ -40,7 +40,7 @@ enum FoundationModelAvailabilityService {
         }
     }
 
-    static var currentStatus: Status {
+    nonisolated static var currentStatus: Status {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let model = SystemLanguageModel.default
@@ -70,11 +70,14 @@ enum FoundationModelAvailabilityService {
         #endif
     }
 
-    static var isAvailable: Bool {
-        currentStatus == .available
+    nonisolated static var isAvailable: Bool {
+        if case .available = currentStatus {
+            return true
+        }
+        return false
     }
 
-    static var fallbackReason: FallbackReason? {
+    nonisolated static var fallbackReason: FallbackReason? {
         guard case let .unavailable(reason) = currentStatus else { return nil }
         return reason
     }

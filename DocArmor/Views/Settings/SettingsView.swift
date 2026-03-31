@@ -60,12 +60,12 @@ struct SettingsView: View {
             case .travel: return "Recommended because you already store travel, passport, or identity documents."
             case .vehicle: return "Recommended for adult household members and roadside-ready access."
             case .family: return "Recommended because your household spans multiple people."
-            case .school: return "Recommended because your household includes a child or dependent."
+            case .school: return "Recommended because your household includes a child."
             case .medical: return "Recommended because medical or insurance records are already present."
             case .work: return "Recommended because work or credential records are already present."
             case .property: return "Recommended because property or insurance records are already present."
             case .disaster: return "Recommended to keep emergency documents together."
-            case .dependent: return "Recommended because your household includes a dependent-care role."
+            case .dependent: return "Recommended because your household includes a child or senior profile."
             case .pet: return "Recommended because your household includes a pet profile."
             }
         }
@@ -80,7 +80,7 @@ struct SettingsView: View {
     @State private var showingResetAlert = false
     @State private var showingResetConfirm = false
     @State private var isResetting = false
-    @State private var householdProfiles = HouseholdStore.loadProfiles()
+    @State private var householdProfiles: [HouseholdMemberProfile] = []
     @State private var newMemberName = ""
     @State private var newMemberRole: HouseholdRole = .adult
     @State private var showingRestoreConfirm = false
@@ -89,10 +89,10 @@ struct SettingsView: View {
     @State private var activeBackupOperation: BackupOperation?
     @State private var pendingImportURL: URL?
     @State private var backupDocument = EncryptedBackupDocument()
-    @State private var backupFilename = BackupService.defaultFilename()
+    @State private var backupFilename = ""
     @State private var backupError: String?
     @State private var backupSuccessMessage: String?
-    @State private var emergencyCard = EmergencyCardStore.load()
+    @State private var emergencyCard = EmergencyCardData()
     @AppStorage("smartPack.travelEnabled") private var travelPackEnabled = true
     @AppStorage("smartPack.vehicleEnabled") private var vehiclePackEnabled = true
     @AppStorage("smartPack.familyEnabled") private var familyPackEnabled = true
@@ -113,6 +113,7 @@ struct SettingsView: View {
     @State private var customPacks: [SavedCustomPack] = []
     @State private var foundationModelStatus: FoundationModelAvailabilityService.Status = .unavailable(.frameworkUnavailable)
     @State private var vaultKeyExists: Bool = false
+    @State private var hasLoadedInitialState = false
 
     // Cached derived state — recomputed only when inputs change, not on every render
     @State private var cachedPackRecommendations: [LocalIntelligenceRecommendationService.PackRecommendation] = []
@@ -190,7 +191,7 @@ struct SettingsView: View {
                                     Text("\(documentCount(for: profile.name))")
                                         .foregroundStyle(.secondary)
                                     Button {
-                                        householdProfiles = HouseholdStore.removeProfile(named: profile.name)
+                                        removeHouseholdProfile(named: profile.name)
                                     } label: {
                                         Image(systemName: "minus.circle.fill")
                                             .foregroundStyle(.secondary)
@@ -221,7 +222,7 @@ struct SettingsView: View {
                         .pickerStyle(.menu)
 
                         Button("Add") {
-                            householdProfiles = HouseholdStore.addMember(named: newMemberName, role: newMemberRole)
+                            addHouseholdMember()
                             newMemberName = ""
                             newMemberRole = .adult
                         }
@@ -608,6 +609,23 @@ struct SettingsView: View {
                 Text(backupSuccessMessage ?? "Done.")
             }
             .task {
+                guard !hasLoadedInitialState else { return }
+                hasLoadedInitialState = true
+
+                async let profiles: [HouseholdMemberProfile] = Task.detached(priority: .userInitiated) {
+                    HouseholdStore.loadProfiles()
+                }.value
+                async let card: EmergencyCardData = Task.detached(priority: .userInitiated) {
+                    EmergencyCardStore.load()
+                }.value
+                async let defaultBackupFilename: String = Task.detached(priority: .utility) {
+                    BackupService.defaultFilename()
+                }.value
+
+                householdProfiles = await profiles
+                emergencyCard = await card
+                backupFilename = await defaultBackupFilename
+
                 migrateLegacyCustomPacksIfNeeded()
                 refreshDerivedState()
 
@@ -762,11 +780,35 @@ struct SettingsView: View {
 
     private func householdRoleBinding(for memberName: String) -> Binding<HouseholdRole> {
         Binding(
-            get: { HouseholdStore.role(for: memberName) ?? .adult },
+            get: { householdProfiles.first(where: { $0.name == memberName })?.role ?? .adult },
             set: { newRole in
-                householdProfiles = HouseholdStore.updateRole(for: memberName, role: newRole)
+                updateHouseholdRole(for: memberName, role: newRole)
             }
         )
+    }
+
+    private func addHouseholdMember() {
+        guard let normalized = HouseholdStore.normalize(newMemberName),
+              !householdProfiles.contains(where: { $0.name == normalized }) else {
+            return
+        }
+
+        householdProfiles.append(HouseholdMemberProfile(name: normalized, role: newMemberRole))
+        householdProfiles.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        HouseholdStore.saveProfiles(householdProfiles)
+    }
+
+    private func removeHouseholdProfile(named name: String) {
+        householdProfiles.removeAll { $0.name == name }
+        HouseholdStore.saveProfiles(householdProfiles)
+    }
+
+    private func updateHouseholdRole(for memberName: String, role: HouseholdRole) {
+        householdProfiles = householdProfiles.map { profile in
+            guard profile.name == memberName else { return profile }
+            return HouseholdMemberProfile(name: profile.name, role: role)
+        }
+        HouseholdStore.saveProfiles(householdProfiles)
     }
 
     private var documentsWithRemindersCount: Int { cachedRemindersCount }

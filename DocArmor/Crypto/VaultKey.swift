@@ -8,15 +8,15 @@ import Security
 /// - `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`: never backs up to iCloud,
 ///   never transfers to other devices, deleted if device passcode is removed.
 enum VaultKey {
-    private static let service = "com.katafract.docarmor"
-    private static let account = "vault-master-key"
+    nonisolated private static let service = "com.katafract.docarmor"
+    nonisolated private static let account = "vault-master-key"
 
     // MARK: - Public API
 
     /// Load the existing vault key from the Keychain.
     /// - Throws: `VaultKeyError.notFound` if no key exists yet (first launch).
     ///           Other `VaultKeyError` cases for Keychain failures.
-    static func load() throws -> SymmetricKey {
+    nonisolated static func load() throws -> SymmetricKey {
         let query: [CFString: Any] = [
             kSecClass:            kSecClassGenericPassword,
             kSecAttrService:      service,
@@ -41,7 +41,7 @@ enum VaultKey {
         }
     }
 
-    static func exportKeyData() throws -> Data {
+    nonisolated static func exportKeyData() throws -> Data {
         let key = try load()
         return key.withUnsafeBytes { Data($0) }
     }
@@ -49,7 +49,7 @@ enum VaultKey {
     /// Generate a new AES-256 key and persist it in the Keychain.
     /// Call only on first launch (when `load()` throws `.notFound`).
     @discardableResult
-    static func generate() throws -> SymmetricKey {
+    nonisolated static func generate() throws -> SymmetricKey {
         let key = SymmetricKey(size: .bits256)
         let keyData = key.withUnsafeBytes { Data($0) }
 
@@ -76,7 +76,7 @@ enum VaultKey {
 
     /// Delete the vault key from the Keychain, permanently destroying all encrypted data.
     /// Used by "Reset Vault" — encrypted document data becomes unrecoverable without the key.
-    static func delete() throws {
+    nonisolated static func delete() throws {
         let query: [CFString: Any] = [
             kSecClass:       kSecClassGenericPassword,
             kSecAttrService: service,
@@ -89,7 +89,7 @@ enum VaultKey {
         }
     }
 
-    static func replace(with keyData: Data) throws {
+    nonisolated static func replace(with keyData: Data) throws {
         try delete()
         try store(keyData: keyData)
     }
@@ -98,7 +98,7 @@ enum VaultKey {
     ///
     /// Uses an attribute-only query (`kSecReturnData: false`) so key bytes are never
     /// materialized in memory just to answer a boolean question.
-    static var exists: Bool {
+    nonisolated static var exists: Bool {
         let query: [CFString: Any] = [
             kSecClass:           kSecClassGenericPassword,
             kSecAttrService:     service,
@@ -111,7 +111,7 @@ enum VaultKey {
         return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess
     }
 
-    private static func store(keyData: Data) throws {
+    nonisolated private static func store(keyData: Data) throws {
         #if targetEnvironment(simulator)
         let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         #else

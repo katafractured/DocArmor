@@ -4,7 +4,6 @@ enum HouseholdRole: String, CaseIterable, Codable, Identifiable {
     case adult
     case child
     case senior
-    case dependent
     case pet
 
     nonisolated var id: String { rawValue }
@@ -14,7 +13,6 @@ enum HouseholdRole: String, CaseIterable, Codable, Identifiable {
         case .adult: return "Adult"
         case .child: return "Child"
         case .senior: return "Senior"
-        case .dependent: return "Dependent"
         case .pet: return "Pet"
         }
     }
@@ -24,9 +22,31 @@ enum HouseholdRole: String, CaseIterable, Codable, Identifiable {
         case .adult: return "person.fill"
         case .child: return "figure.and.child.holdinghands"
         case .senior: return "figure.seated.side"
-        case .dependent: return "person.2.crop.square.stack.fill"
         case .pet: return "pawprint.fill"
         }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+
+        switch rawValue {
+        case "adult":
+            self = .adult
+        case "child", "dependent":
+            self = .child
+        case "senior":
+            self = .senior
+        case "pet":
+            self = .pet
+        default:
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown household role: \(rawValue)")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 
@@ -134,7 +154,7 @@ enum HouseholdStore {
     }
 
     nonisolated private static func defaultRole(for name: String?) -> HouseholdRole {
-        normalize(name)?.localizedCaseInsensitiveCompare("Me") == .orderedSame ? .adult : .dependent
+        normalize(name)?.localizedCaseInsensitiveCompare("Me") == .orderedSame ? .adult : .child
     }
 
     nonisolated private static func loadLegacyMembers() -> [String] {
