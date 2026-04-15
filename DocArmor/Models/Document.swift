@@ -62,7 +62,12 @@ final class Document {
 
     var daysUntilExpiry: Int? {
         guard let expiry = expirationDate else { return nil }
-        return Calendar.current.dateComponents([.day], from: .now, to: expiry).day
+        // Fast day arithmetic — Calendar.dateComponents([.day], from:to:) invokes
+        // ICU DST transition math which is orders of magnitude slower and, when
+        // called per-row inside a SwiftUI List body, exceeds the scene-update
+        // watchdog budget on devices with many documents. Off-by-≤1 across a DST
+        // boundary is acceptable for expiration-countdown display.
+        return Int(expiry.timeIntervalSince(.now) / 86_400)
     }
 
     var isMissingRequiredPages: Bool {
@@ -71,9 +76,9 @@ final class Document {
 
     var needsVerificationReview: Bool {
         guard let lastVerifiedAt else { return true }
-        guard let days = Calendar.current.dateComponents([.day], from: lastVerifiedAt, to: .now).day else {
-            return false
-        }
+        // Same fast-path reasoning as daysUntilExpiry — avoids ICU DST math on
+        // the SwiftUI main thread during list rendering.
+        let days = Int(Date.now.timeIntervalSince(lastVerifiedAt) / 86_400)
         return days >= 180
     }
 
