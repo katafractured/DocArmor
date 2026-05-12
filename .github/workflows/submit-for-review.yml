@@ -44,15 +44,26 @@ jobs:
             echo "using local ASC key at $ASC_KEY_PATH"
           fi
 
-      - name: Install gems
-        run: bundle install --quiet
-
       - name: Submit for App Store review
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           BUNDLE_ID: com.katafract.DocArmor
-        run: bundle exec fastlane submit_for_review
+        run: |
+          set -o pipefail
+          RUBY_BIN=""
+          if [ -x "${HOME}/.rbenv/versions/3.3.11/bin/ruby" ]; then
+            RUBY_BIN="${HOME}/.rbenv/versions/3.3.11/bin/ruby"
+          elif command -v rbenv >/dev/null 2>&1; then
+            eval "$(rbenv init - bash)"
+            RUBY_BIN="$(rbenv which ruby 2>/dev/null)"
+          fi
+          if [ -z "$RUBY_BIN" ] || [ ! -x "$RUBY_BIN" ]; then
+            RUBY_BIN="$(command -v ruby 2>/dev/null)"
+          fi
+          export PATH="$(dirname "$RUBY_BIN"):$PATH"
+          $RUBY_BIN -S bundle install --quiet
+          $RUBY_BIN -S bundle exec fastlane submit_for_review
 
       - name: Notify Matrix
         if: always()
